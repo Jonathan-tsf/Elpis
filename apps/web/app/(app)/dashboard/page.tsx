@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { User, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
+
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api-client';
 import { currentUser } from '@/lib/auth';
@@ -8,10 +9,12 @@ import { StatBar } from '@/components/stat-bar';
 import { QuestCard } from '@/components/quest-card';
 import { StreakChip } from '@/components/streak-chip';
 import { BriefingCard } from '@/components/briefing-card';
+import { Avatar } from '@/components/avatar';
 import type { Stats, Quest, Streak } from '@lifeos/shared';
 
 interface StatsResponse {
   stats: Stats | null;
+  avatar_mode?: 'active' | 'decaying' | 'dormant';
 }
 
 interface StreaksResponse {
@@ -21,6 +24,7 @@ interface StreaksResponse {
 export default function DashboardPage() {
   const [email, setEmail] = useState<string | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
+  const [avatarMode, setAvatarMode] = useState<'active' | 'decaying' | 'dormant'>('active');
   const [quests, setQuests] = useState<Quest[]>([]);
   const [streaks, setStreaks] = useState<Streak[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,6 +46,7 @@ export default function DashboardPage() {
         }
         if (statsRes.status === 'fulfilled') {
           setStats(statsRes.value.stats);
+          if (statsRes.value.avatar_mode) setAvatarMode(statsRes.value.avatar_mode);
         }
         if (questsRes.status === 'fulfilled') {
           setQuests(Array.isArray(questsRes.value) ? questsRes.value : []);
@@ -94,9 +99,12 @@ export default function DashboardPage() {
     <div className="space-y-8 max-w-5xl">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <div className="w-12 h-12 rounded-full bg-bg-strong border border-bg-strong flex items-center justify-center">
-          <User size={22} className="text-accent-spirit" />
-        </div>
+        <Avatar
+          initial={email?.[0] ?? 'U'}
+          level={stats?.global_level ?? 1}
+          mode={avatarMode}
+          size={64}
+        />
         <div className="flex-1 min-w-0">
           <div className="text-sm text-text-muted truncate">{email ?? '…'}</div>
           {stats && (

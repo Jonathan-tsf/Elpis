@@ -1,5 +1,5 @@
 import { Construct } from 'constructs';
-import { Duration, CfnOutput, aws_iam as iam } from 'aws-cdk-lib';
+import { Duration, CfnOutput, aws_iam as iam, aws_events as events, aws_events_targets as targets } from 'aws-cdk-lib';
 import { aws_lambda as lambda } from 'aws-cdk-lib';
 import {
   HttpApi,
@@ -97,5 +97,20 @@ export class ApiConstruct extends Construct {
     this.httpApi.addRoutes({ path: '/', methods: appMethods, integration });
 
     new CfnOutput(this, 'ApiUrl', { value: this.httpApi.apiEndpoint });
+
+    // EventBridge daily briefing cron — 06:00 UTC every day
+    const briefingRule = new events.Rule(this, 'BriefingDailyRule', {
+      ruleName: `lifeos-${props.envName}-briefing-daily`,
+      schedule: events.Schedule.cron({ minute: '0', hour: '6', day: '*', month: '*', year: '*' }),
+      description: 'Trigger daily morning briefing generation',
+    });
+    briefingRule.addTarget(
+      new targets.LambdaFunction(this.fn, {
+        event: events.RuleTargetInput.fromObject({
+          source: 'eventbridge.cron',
+          kind: 'briefing_daily',
+        }),
+      }),
+    );
   }
 }
