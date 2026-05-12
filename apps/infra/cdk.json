@@ -1,0 +1,6 @@
+{
+  "app": "tsx bin/lifeos.ts",
+  "context": {
+    "@aws-cdk/aws-iam:minimizePolicies": true
+  }
+}
