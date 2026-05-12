@@ -22,7 +22,7 @@ export class AuthConstruct extends Construct {
       autoVerify: { email: true },
       standardAttributes: { email: { required: true, mutable: false } },
       passwordPolicy: {
-        minLength: 12,
+        minLength: 10,
         requireLowercase: true,
         requireUppercase: true,
         requireDigits: true,

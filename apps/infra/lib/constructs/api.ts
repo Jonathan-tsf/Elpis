@@ -62,8 +62,19 @@ export class ApiConstruct extends Construct {
     });
 
     const integration = new HttpLambdaIntegration('LambdaIntegration', this.fn);
-    this.httpApi.addRoutes({ path: '/{proxy+}', methods: [HttpMethod.ANY], integration });
-    this.httpApi.addRoutes({ path: '/', methods: [HttpMethod.ANY], integration });
+    // Exclude OPTIONS — API Gateway handles CORS preflight itself when the
+    // method is not registered as a route. Registering ANY would forward
+    // OPTIONS to the Lambda, which then 401s in our auth middleware.
+    const appMethods = [
+      HttpMethod.GET,
+      HttpMethod.POST,
+      HttpMethod.PUT,
+      HttpMethod.PATCH,
+      HttpMethod.DELETE,
+      HttpMethod.HEAD,
+    ];
+    this.httpApi.addRoutes({ path: '/{proxy+}', methods: appMethods, integration });
+    this.httpApi.addRoutes({ path: '/', methods: appMethods, integration });
 
     new CfnOutput(this, 'ApiUrl', { value: this.httpApi.apiEndpoint });
   }
