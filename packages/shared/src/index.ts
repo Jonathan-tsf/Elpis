@@ -6,3 +6,4 @@ export * from './photo';
 export * from './stats';
 export * from './quest';
 export * from './streak';
+export * from './quests-catalog';

@@ -1,4 +1,4 @@
-import { type DailyLogInput, type WorkoutInput, type Stats, type StatName } from '@lifeos/shared';
+import { type DailyLogInput, type WorkoutInput, type Stats, type StatName, type PhotoConfirmInput } from '@lifeos/shared';
 
 export type XpDelta = { stat: StatName; amount: number; reason: string };
 
@@ -72,6 +72,27 @@ export function deltasForWorkout(input: WorkoutInput): XpDelta[] {
   const totalSets = input.exercises.reduce((acc, e) => acc + e.sets.length, 0);
   if (totalSets >= 12) {
     out.push({ stat: 'endurance', amount: 10, reason: 'workout_volume_12_sets' });
+  }
+  return out;
+}
+
+const PROTOCOL_TAGS: Set<string> = new Set([
+  'face',
+  'profile_left',
+  'profile_right',
+  'three_quarter',
+  'back',
+  'posture',
+  'body_front',
+  'body_back',
+  'body_side',
+]);
+
+export function deltasForPhoto(input: PhotoConfirmInput): XpDelta[] {
+  const out: XpDelta[] = [];
+  out.push({ stat: 'discipline', amount: 5, reason: 'photo_logged' });
+  if (input.tags.some((t) => PROTOCOL_TAGS.has(t))) {
+    out.push({ stat: 'appearance', amount: 15, reason: 'photo_protocolaire' });
   }
   return out;
 }

@@ -4,6 +4,10 @@ import { meRoute } from './routes/me';
 import { dailyLogRoute } from './routes/daily-log';
 import { workoutsRoute } from './routes/workouts';
 import { measurementsRoute } from './routes/measurements';
+import { photosRoute } from './routes/photos';
+import { statsRoute } from './routes/stats';
+import { streaksRoute } from './routes/streaks';
+import { questsRoute } from './routes/quests';
 import { authMiddleware, type JwtVerifier } from './middlewares/auth';
 
 export interface AppDeps {
@@ -26,5 +30,17 @@ export function createApp(deps: AppDeps) {
   app.use('/measurements/*', authMiddleware(deps.jwtVerifierStub));
   app.use('/measurements', authMiddleware(deps.jwtVerifierStub));
   app.route('/measurements', measurementsRoute());
+  app.use('/photos/*', authMiddleware(deps.jwtVerifierStub));
+  app.use('/photos', authMiddleware(deps.jwtVerifierStub));
+  app.route('/photos', photosRoute());
+  app.use('/stats/*', authMiddleware(deps.jwtVerifierStub));
+  app.use('/stats', authMiddleware(deps.jwtVerifierStub));
+  app.route('/stats', statsRoute());
+  app.use('/streaks/*', authMiddleware(deps.jwtVerifierStub));
+  app.use('/streaks', authMiddleware(deps.jwtVerifierStub));
+  app.route('/streaks', streaksRoute());
+  app.use('/quests/*', authMiddleware(deps.jwtVerifierStub));
+  app.use('/quests', authMiddleware(deps.jwtVerifierStub));
+  app.route('/quests', questsRoute());
   return app;
 }

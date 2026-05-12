@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { deltasForDailyLog, deltasForWorkout, applyDeltasToStats, XP_PER_LEVEL, type XpDelta } from '../src/services/xp-engine';
-import type { DailyLogInput, WorkoutInput } from '@lifeos/shared';
+import { deltasForDailyLog, deltasForWorkout, deltasForPhoto, applyDeltasToStats, XP_PER_LEVEL, type XpDelta } from '../src/services/xp-engine';
+import type { DailyLogInput, WorkoutInput, PhotoConfirmInput } from '@lifeos/shared';
 
 describe('deltasForDailyLog', () => {
   it('empty input yields only always-on +20 Discipline', () => {
@@ -169,5 +169,43 @@ describe('applyDeltasToStats', () => {
     const deltas: XpDelta[] = [{ stat: 'force', amount: 20000, reason: 'test' }];
     const stats = applyDeltasToStats(null, deltas);
     expect(stats.per_stat['force']?.level).toBe(100);
+  });
+});
+
+describe('deltasForPhoto', () => {
+  const baseInput: PhotoConfirmInput = {
+    photoId: 'abc',
+    key: 'photos/2026-05-12/abc.jpg',
+    date: '2026-05-12',
+    tags: ['face'],
+  };
+
+  it('with protocol tag [face] => 2 deltas (discipline + appearance)', () => {
+    const deltas = deltasForPhoto({ ...baseInput, tags: ['face'] });
+    expect(deltas).toHaveLength(2);
+    expect(deltas.find((d) => d.reason === 'photo_logged')).toEqual({
+      stat: 'discipline',
+      amount: 5,
+      reason: 'photo_logged',
+    });
+    expect(deltas.find((d) => d.reason === 'photo_protocolaire')).toEqual({
+      stat: 'appearance',
+      amount: 15,
+      reason: 'photo_protocolaire',
+    });
+  });
+
+  it('with non-protocol tag [skin] => 1 delta (only discipline)', () => {
+    const deltas = deltasForPhoto({ ...baseInput, tags: ['skin'] });
+    expect(deltas).toHaveLength(1);
+    expect(deltas[0]?.reason).toBe('photo_logged');
+    expect(deltas.find((d) => d.reason === 'photo_protocolaire')).toBeUndefined();
+  });
+
+  it('with multiple protocol tags [face, profile_left] => 2 deltas (no double-count)', () => {
+    const deltas = deltasForPhoto({ ...baseInput, tags: ['face', 'profile_left'] });
+    expect(deltas).toHaveLength(2);
+    const protocolDeltas = deltas.filter((d) => d.reason === 'photo_protocolaire');
+    expect(protocolDeltas).toHaveLength(1);
   });
 });
