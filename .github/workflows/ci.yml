@@ -16,10 +16,11 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
+      - name: Build API (required as CDK Lambda asset by infra tests)
+        run: pnpm --filter @lifeos/api build
       - run: pnpm test
-      - run: pnpm --filter @lifeos/api build
       - name: CDK synth
         env:
           CDK_DEFAULT_ACCOUNT: '000000000000'
           CDK_DEFAULT_REGION: us-east-1
-        run: pnpm --filter @lifeos/infra synth
+        run: pnpm --filter @lifeos/infra run synth
