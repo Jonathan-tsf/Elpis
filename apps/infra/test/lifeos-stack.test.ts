@@ -40,11 +40,12 @@ describe('LifeOsStack', () => {
 
   it('has a Lambda function and an HTTP API', () => {
     const t = Template.fromStack(makeStack());
-    // Match the api Lambda specifically by memory size (512 MB),
+    // Match the api Lambda specifically by function name,
     // distinct from CDK autoDeleteObjects custom-resource Lambdas.
     t.hasResourceProperties('AWS::Lambda::Function', {
       Runtime: 'nodejs20.x',
-      MemorySize: 512,
+      MemorySize: 1024,
+      FunctionName: 'lifeos-dev-api',
     });
     t.resourceCountIs('AWS::ApiGatewayV2::Api', 1);
   });

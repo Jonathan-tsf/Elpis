@@ -11,6 +11,7 @@ import { questsRoute } from './routes/quests';
 import { briefingsRoute } from './routes/briefings';
 import { coachRoute } from './routes/coach';
 import { analysisRoute } from './routes/analysis';
+import { voiceJournalRoute } from './routes/voice-journal';
 import { authMiddleware, type JwtVerifier } from './middlewares/auth';
 
 export interface AppDeps {
@@ -54,5 +55,8 @@ export function createApp(deps: AppDeps) {
   app.use('/analysis/*', authMiddleware(deps.jwtVerifierStub));
   app.use('/analysis', authMiddleware(deps.jwtVerifierStub));
   app.route('/analysis', analysisRoute());
+  app.use('/voice-journal/*', authMiddleware(deps.jwtVerifierStub));
+  app.use('/voice-journal', authMiddleware(deps.jwtVerifierStub));
+  app.route('/voice-journal', voiceJournalRoute());
   return app;
 }

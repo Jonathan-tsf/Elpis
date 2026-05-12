@@ -64,6 +64,14 @@ export class ApiConstruct extends Construct {
       }),
     );
 
+    // Transcribe permissions for voice journal pipeline
+    this.fn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['transcribe:StartTranscriptionJob', 'transcribe:GetTranscriptionJob'],
+        resources: ['*'],
+      }),
+    );
+
     this.httpApi = new HttpApi(this, 'HttpApi', {
       apiName: `lifeos-${props.envName}`,
       corsPreflight: {

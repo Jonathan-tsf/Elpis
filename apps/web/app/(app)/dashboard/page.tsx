@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { User } from 'lucide-react';
+import { User, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api-client';
 import { currentUser } from '@/lib/auth';
@@ -25,6 +25,7 @@ export default function DashboardPage() {
   const [streaks, setStreaks] = useState<Streak[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [regenerating, setRegenerating] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -61,6 +62,18 @@ export default function DashboardPage() {
     }
     load();
   }, []);
+
+  const handleRegenerateQuests = async () => {
+    setRegenerating(true);
+    try {
+      const newQuests = await apiFetch<Quest[]>('/quests/regenerate', { method: 'POST' });
+      setQuests(Array.isArray(newQuests) ? newQuests : []);
+    } catch {
+      // silently fail — quests remain unchanged
+    } finally {
+      setRegenerating(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -114,9 +127,20 @@ export default function DashboardPage() {
 
       {/* Quests */}
       <section>
-        <h2 className="font-display tracking-widest text-xs text-text-muted uppercase mb-3">
-          Quêtes aujourd&apos;hui
-        </h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-display tracking-widest text-xs text-text-muted uppercase">
+            Quêtes aujourd&apos;hui
+          </h2>
+          <button
+            onClick={handleRegenerateQuests}
+            disabled={regenerating}
+            className="flex items-center gap-1.5 text-xs text-accent-spirit hover:text-accent-spirit/80 disabled:opacity-50 transition-opacity"
+            title="Générer mes quêtes du jour avec l'IA"
+          >
+            <RefreshCw size={12} className={regenerating ? 'animate-spin' : ''} />
+            Régénérer (IA)
+          </button>
+        </div>
         {quests.length === 0 ? (
           <p className="text-text-muted text-sm">Aucune quête active.</p>
         ) : (

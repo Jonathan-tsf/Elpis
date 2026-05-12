@@ -9,6 +9,7 @@ import { apiFetch } from '@/lib/api-client';
 import { todayStr, shiftDate, formatHumanDate } from '@/lib/dates';
 import { showXpToast, type XpDelta } from '@/components/xp-toast';
 import { LogHistoryCard } from '@/components/log-history-card';
+import { VoiceRecorder } from '@/components/voice-recorder';
 import type { DailyLog } from '@lifeos/shared';
 
 // ─── Form schema ────────────────────────────────────────────────────────────
@@ -133,7 +134,7 @@ export default function JournalPage() {
       </div>
 
       {tab === 'today' ? (
-        <DailyLogForm
+        <TodayTab
           today={today}
           onSuccess={(res) => {
             const total = res.xp_deltas.reduce((s, d) => s + d.amount, 0);
@@ -193,13 +194,89 @@ export default function JournalPage() {
   );
 }
 
-// ─── DailyLog Form ───────────────────────────────────────────────────────────
+// ─── Today Tab (VoiceRecorder + DailyLogForm) ────────────────────────────────
 
-function DailyLogForm({
+function TodayTab({
   today,
   onSuccess,
 }: {
   today: string;
+  onSuccess: (res: PutLogResponse) => void;
+}) {
+  const [voiceDraftKey, setVoiceDraftKey] = useState(0);
+
+  // Use a key-based approach: when voice applies a draft, we re-mount the form with new defaults.
+  // We pass the draft as initialValues to DailyLogForm.
+  const [initialValues, setInitialValues] = useState<Partial<FormValues> | null>(null);
+
+  const handleApplyDraft = (
+    draft: {
+      sleep?: { duration_min: number; quality?: number; bedtime?: string; wake_time?: string };
+      mood?: { mood: number; energy: number; focus: number; notes?: string };
+      hydration_l?: number;
+      skincare?: { am?: boolean; pm?: boolean; notes?: string };
+      supplements?: { name: string; dose?: string }[];
+      meals?: { slot: string; description: string; score?: number }[];
+      notes?: string;
+    },
+  ) => {
+    const vals: Partial<FormValues> = {};
+    if (draft.sleep) {
+      vals.sleep_h = Math.floor(draft.sleep.duration_min / 60);
+      vals.sleep_min = draft.sleep.duration_min % 60;
+      if (draft.sleep.quality) vals.sleep_quality = draft.sleep.quality;
+      if (draft.sleep.bedtime) vals.sleep_bedtime = draft.sleep.bedtime;
+      if (draft.sleep.wake_time) vals.sleep_wake = draft.sleep.wake_time;
+    }
+    if (draft.mood) {
+      vals.mood = draft.mood.mood;
+      vals.energy = draft.mood.energy;
+      vals.focus = draft.mood.focus;
+      if (draft.mood.notes) vals.mood_notes = draft.mood.notes;
+    }
+    if (draft.hydration_l != null) vals.hydration_l = draft.hydration_l;
+    if (draft.skincare) {
+      vals.skincare_am = draft.skincare.am ?? false;
+      vals.skincare_pm = draft.skincare.pm ?? false;
+      if (draft.skincare.notes) vals.skincare_notes = draft.skincare.notes;
+    }
+    if (draft.supplements?.length) {
+      vals.supplements = draft.supplements.map((s) => ({ name: s.name, dose: s.dose ?? '' }));
+    }
+    if (draft.meals?.length) {
+      vals.meals = draft.meals.map((m) => ({
+        slot: m.slot as 'breakfast' | 'lunch' | 'snack' | 'dinner',
+        description: m.description,
+        score: m.score,
+      }));
+    }
+    if (draft.notes) vals.notes = draft.notes;
+    setInitialValues(vals);
+    setVoiceDraftKey((k) => k + 1);
+  };
+
+  return (
+    <div className="space-y-6">
+      <VoiceRecorder date={today} onApplyDraft={handleApplyDraft} />
+      <DailyLogForm
+        key={voiceDraftKey}
+        today={today}
+        voiceInitialValues={initialValues}
+        onSuccess={onSuccess}
+      />
+    </div>
+  );
+}
+
+// ─── DailyLog Form ───────────────────────────────────────────────────────────
+
+function DailyLogForm({
+  today,
+  voiceInitialValues,
+  onSuccess,
+}: {
+  today: string;
+  voiceInitialValues?: Partial<FormValues> | null;
   onSuccess: (res: PutLogResponse) => void;
 }) {
   const {
@@ -232,8 +309,22 @@ function DailyLogForm({
     name: 'meals',
   });
 
-  // Pre-fill from existing log
+  // Pre-fill from existing log (or from voice draft when provided)
   useEffect(() => {
+    if (voiceInitialValues) {
+      // Voice draft takes priority — reset with the voice-parsed values
+      reset({
+        mood: 5,
+        energy: 5,
+        focus: 5,
+        skincare_am: false,
+        skincare_pm: false,
+        supplements: [],
+        meals: [],
+        ...voiceInitialValues,
+      });
+      return;
+    }
     apiFetch<DailyLog & Record<string, unknown>>(`/daily-log/${today}`)
       .then((log) => {
         const vals: Partial<FormValues> = {};
@@ -272,7 +363,7 @@ function DailyLogForm({
       .catch(() => {
         // 404 is fine — no existing log
       });
-  }, [today, reset]);
+  }, [today, reset, voiceInitialValues]);
 
   const moodVal = watch('mood');
   const energyVal = watch('energy');

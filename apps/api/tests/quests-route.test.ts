@@ -1,5 +1,5 @@
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, GetCommand, QueryCommand } from '@aws-sdk/lib-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app';
@@ -32,7 +32,10 @@ describe('GET /quests', () => {
   });
 
   it('returns 5 quests all active when no daily log exists', async () => {
-    // No item returned = no today's log
+    // No AI quests in DynamoDB (QueryCommand returns empty Items)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ddbMock.on(QueryCommand as never).resolves({ Items: [] } as any);
+    // No today's log
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ddbMock.on(GetCommand as never).resolves({} as any);
 
@@ -51,6 +54,9 @@ describe('GET /quests', () => {
 
   it('returns correct statuses based on a stored DailyLog', async () => {
     const today = new Date().toISOString().slice(0, 10);
+    // No AI quests — fall back to static catalog
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ddbMock.on(QueryCommand as never).resolves({ Items: [] } as any);
     const dailyLogItem = {
       PK: 'USER#me',
       SK: `DAY#${today}`,
