@@ -6,6 +6,7 @@ import { showXpToast, type XpDelta } from '@/components/xp-toast';
 import { PhotoTile } from '@/components/photo-tile';
 import { apiFetch } from '@/lib/api-client';
 import { todayStr } from '@/lib/dates';
+import { AnalyseButton } from '@/components/analyse-button';
 import type { Photo, PhotoTag } from '@lifeos/shared';
 
 // ─── Photo tags ───────────────────────────────────────────────────────────────
@@ -153,7 +154,10 @@ export default function LooksmaxPage() {
 
   return (
     <div className="max-w-2xl space-y-8">
-      <h1 className="font-display tracking-widest text-2xl text-text-DEFAULT">Looksmax</h1>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h1 className="font-display tracking-widest text-2xl text-text-DEFAULT">Looksmax</h1>
+        <AnalyseButton scope="looksmax" days={90} />
+      </div>
 
       {/* ── Upload section ── */}
       <section className="rounded-lg border border-bg-strong bg-bg-subtle p-5 space-y-4">

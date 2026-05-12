@@ -7,6 +7,7 @@ import { currentUser } from '@/lib/auth';
 import { StatBar } from '@/components/stat-bar';
 import { QuestCard } from '@/components/quest-card';
 import { StreakChip } from '@/components/streak-chip';
+import { BriefingCard } from '@/components/briefing-card';
 import type { Stats, Quest, Streak } from '@lifeos/shared';
 
 interface StatsResponse {
@@ -107,6 +108,9 @@ export default function DashboardPage() {
           {error}
         </div>
       )}
+
+      {/* Briefing */}
+      <BriefingCard />
 
       {/* Quests */}
       <section>

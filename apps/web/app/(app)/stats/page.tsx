@@ -18,6 +18,7 @@ import { apiFetch } from '@/lib/api-client';
 import { todayStr, shiftDate } from '@/lib/dates';
 import { StatsRadar } from '@/components/radar-chart';
 import { StatBar } from '@/components/stat-bar';
+import { AnalyseButton } from '@/components/analyse-button';
 import type { Stats, StatName } from '@lifeos/shared';
 
 // ─── Measurement form schema ──────────────────────────────────────────────────
@@ -97,7 +98,10 @@ export default function StatsPage() {
 
   return (
     <div className="max-w-2xl space-y-10">
-      <h1 className="font-display tracking-widest text-2xl text-text-DEFAULT">Stats</h1>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h1 className="font-display tracking-widest text-2xl text-text-DEFAULT">Stats</h1>
+        <AnalyseButton scope="global" days={90} />
+      </div>
 
       {/* ── RPG Stats ── */}
       <section>

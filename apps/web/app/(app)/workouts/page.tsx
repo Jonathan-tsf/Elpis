@@ -9,6 +9,7 @@ import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api-client';
 import { todayStr, shiftDate, formatHumanDate } from '@/lib/dates';
 import { showXpToast, type XpDelta } from '@/components/xp-toast';
+import { AnalyseButton } from '@/components/analyse-button';
 import type { Workout } from '@lifeos/shared';
 
 // ─── Local form schema ────────────────────────────────────────────────────────
@@ -69,9 +70,12 @@ export default function WorkoutsPage() {
 
   return (
     <div className="max-w-2xl space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="font-display tracking-widest text-2xl text-text-DEFAULT">Workouts</h1>
-        <span className="text-xs text-text-muted font-mono">{formatHumanDate(today)}</span>
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-text-muted font-mono">{formatHumanDate(today)}</span>
+          <AnalyseButton scope="workouts" days={90} />
+        </div>
       </div>
 
       {/* Tabs */}
