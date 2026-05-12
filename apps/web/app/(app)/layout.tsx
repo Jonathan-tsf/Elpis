@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { currentUser } from '@/lib/auth';
 import { Sidebar } from '@/components/sidebar';
+import { Toaster } from 'sonner';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -22,6 +23,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <div className="flex">
       <Sidebar />
       <main className="flex-1 min-h-screen p-8">{children}</main>
+      <Toaster position="bottom-right" theme="dark" richColors />
     </div>
   );
 }
