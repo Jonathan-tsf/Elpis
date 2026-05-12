@@ -53,6 +53,8 @@ describe('PUT /daily-log/:date', () => {
   });
 
   it('returns 200 with valid body and persists item', async () => {
+    // Stats read returns null (no existing stats)
+    ddbMock.on(GetCommand as never).resolves({});
     ddbMock.on(PutCommand as never).resolves({});
     const res = await app().request(`/daily-log/${DATE}`, {
       method: 'PUT',
@@ -67,9 +69,18 @@ describe('PUT /daily-log/:date', () => {
     expect(body.notes).toBe('test note');
     expect(typeof body.updated_at).toBe('number');
 
+    // Assert XP deltas and stats are present
+    expect(Array.isArray(body.xp_deltas)).toBe(true);
+    expect(body.xp_deltas.length).toBeGreaterThanOrEqual(1);
+    expect(typeof body.stats).toBe('object');
+    expect(typeof body.stats.global_level).toBe('number');
+    expect(typeof body.stats.global_xp).toBe('number');
+    expect(typeof body.stats.per_stat).toBe('object');
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const calls = ddbMock.commandCalls(PutCommand as any);
-    expect(calls).toHaveLength(1);
+    // At least 1 daily log put + 1 stats put + N xp event puts
+    expect(calls.length).toBeGreaterThanOrEqual(2);
     const input = calls[0]?.args[0].input as Record<string, unknown>;
     expect(input['TableName']).toBe('test');
     const item = input['Item'] as Record<string, unknown>;

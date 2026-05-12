@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { DailyLogInput } from '@lifeos/shared';
 import { dailyLogKey, USER_PK, dateString } from '../services/keys';
 import { getItem, putItem, queryItems, getDocClient } from '../services/dynamodb-client';
+import { deltasForDailyLog } from '../services/xp-engine';
+import { awardXp } from '../services/xp-persistence';
 
 type DailyLogItem = {
   PK: string;
@@ -40,7 +42,9 @@ export function dailyLogRoute() {
     const doc = getDocClient();
     await putItem(doc, item);
 
-    return c.json({ date: dateParam, ...parsed.data, updated_at: item.updated_at });
+    const deltas = deltasForDailyLog(parsed.data);
+    const newStats = await awardXp(doc, deltas, `daily_log:${dateParam}`);
+    return c.json({ date: dateParam, ...parsed.data, updated_at: item.updated_at, xp_deltas: deltas, stats: newStats });
   });
 
   // GET /:date — fetch one
