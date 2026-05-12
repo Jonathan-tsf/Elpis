@@ -8,6 +8,7 @@ describe('LifeOsStack', () => {
     const app = new App();
     const stack = new LifeOsStack(app, 'TestStack', {
       envName: 'dev',
+      webBaseUrl: 'http://localhost:3000',
       env: { account: '123456789012', region: 'us-east-1' },
     });
     const t = Template.fromStack(stack);
@@ -25,9 +26,23 @@ describe('LifeOsStack', () => {
     const app = new App();
     const stack = new LifeOsStack(app, 'TestStack', {
       envName: 'dev',
+      webBaseUrl: 'http://localhost:3000',
       env: { account: '123456789012', region: 'us-east-1' },
     });
     const t = Template.fromStack(stack);
     t.resourceCountIs('AWS::S3::Bucket', 3);
+  });
+
+  it('has a Cognito user pool with a web client', () => {
+    const app = new App();
+    const stack = new LifeOsStack(app, 'TestStack', {
+      envName: 'dev',
+      webBaseUrl: 'http://localhost:3000',
+      env: { account: '123456789012', region: 'us-east-1' },
+    });
+    const t = Template.fromStack(stack);
+    t.resourceCountIs('AWS::Cognito::UserPool', 1);
+    t.resourceCountIs('AWS::Cognito::UserPoolClient', 1);
+    t.resourceCountIs('AWS::Cognito::UserPoolDomain', 1);
   });
 });

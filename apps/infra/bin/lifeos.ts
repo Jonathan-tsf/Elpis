@@ -7,5 +7,6 @@ const app = new App();
 const cfg = loadStackConfig();
 new LifeOsStack(app, `LifeOs-${cfg.envName}`, {
   envName: cfg.envName,
+  webBaseUrl: process.env.WEB_BASE_URL ?? 'http://localhost:3000',
   env: { account: cfg.account, region: cfg.region },
 });
