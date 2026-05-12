@@ -1,0 +1,70 @@
+import { Construct } from 'constructs';
+import { Duration, CfnOutput } from 'aws-cdk-lib';
+import { aws_lambda as lambda } from 'aws-cdk-lib';
+import {
+  HttpApi,
+  HttpMethod,
+  CorsHttpMethod,
+} from 'aws-cdk-lib/aws-apigatewayv2';
+import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
+import { aws_dynamodb as ddb, aws_s3 as s3 } from 'aws-cdk-lib';
+import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+export interface ApiConstructProps {
+  envName: string;
+  region: string;
+  table: ddb.ITable;
+  buckets: { photos: s3.IBucket; voice: s3.IBucket; reports: s3.IBucket };
+  cognitoUserPoolId: string;
+  cognitoClientId: string;
+}
+
+export class ApiConstruct extends Construct {
+  public readonly httpApi: HttpApi;
+  public readonly fn: lambda.Function;
+
+  constructor(scope: Construct, id: string, props: ApiConstructProps) {
+    super(scope, id);
+
+    this.fn = new lambda.Function(this, 'Fn', {
+      functionName: `lifeos-${props.envName}-api`,
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: 'lambda.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../../../api/dist')),
+      memorySize: 512,
+      timeout: Duration.seconds(15),
+      environment: {
+        TABLE_NAME: props.table.tableName,
+        PHOTOS_BUCKET: props.buckets.photos.bucketName,
+        VOICE_BUCKET: props.buckets.voice.bucketName,
+        REPORTS_BUCKET: props.buckets.reports.bucketName,
+        COGNITO_USER_POOL_ID: props.cognitoUserPoolId,
+        COGNITO_CLIENT_ID: props.cognitoClientId,
+        VERSION: process.env['GIT_SHA'] ?? 'dev',
+      },
+    });
+    props.table.grantReadWriteData(this.fn);
+    props.buckets.photos.grantReadWrite(this.fn);
+    props.buckets.voice.grantReadWrite(this.fn);
+    props.buckets.reports.grantReadWrite(this.fn);
+
+    this.httpApi = new HttpApi(this, 'HttpApi', {
+      apiName: `lifeos-${props.envName}`,
+      corsPreflight: {
+        allowOrigins: ['http://localhost:3000'],
+        allowMethods: [CorsHttpMethod.ANY],
+        allowHeaders: ['Authorization', 'Content-Type'],
+      },
+    });
+
+    const integration = new HttpLambdaIntegration('LambdaIntegration', this.fn);
+    this.httpApi.addRoutes({ path: '/{proxy+}', methods: [HttpMethod.ANY], integration });
+    this.httpApi.addRoutes({ path: '/', methods: [HttpMethod.ANY], integration });
+
+    new CfnOutput(this, 'ApiUrl', { value: this.httpApi.apiEndpoint });
+  }
+}
