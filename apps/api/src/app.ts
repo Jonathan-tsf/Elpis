@@ -8,6 +8,9 @@ import { photosRoute } from './routes/photos';
 import { statsRoute } from './routes/stats';
 import { streaksRoute } from './routes/streaks';
 import { questsRoute } from './routes/quests';
+import { briefingsRoute } from './routes/briefings';
+import { coachRoute } from './routes/coach';
+import { analysisRoute } from './routes/analysis';
 import { authMiddleware, type JwtVerifier } from './middlewares/auth';
 
 export interface AppDeps {
@@ -42,5 +45,14 @@ export function createApp(deps: AppDeps) {
   app.use('/quests/*', authMiddleware(deps.jwtVerifierStub));
   app.use('/quests', authMiddleware(deps.jwtVerifierStub));
   app.route('/quests', questsRoute());
+  app.use('/briefings/*', authMiddleware(deps.jwtVerifierStub));
+  app.use('/briefings', authMiddleware(deps.jwtVerifierStub));
+  app.route('/briefings', briefingsRoute());
+  app.use('/coach/*', authMiddleware(deps.jwtVerifierStub));
+  app.use('/coach', authMiddleware(deps.jwtVerifierStub));
+  app.route('/coach', coachRoute());
+  app.use('/analysis/*', authMiddleware(deps.jwtVerifierStub));
+  app.use('/analysis', authMiddleware(deps.jwtVerifierStub));
+  app.route('/analysis', analysisRoute());
   return app;
 }

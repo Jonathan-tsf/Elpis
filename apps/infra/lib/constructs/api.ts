@@ -1,5 +1,5 @@
 import { Construct } from 'constructs';
-import { Duration, CfnOutput } from 'aws-cdk-lib';
+import { Duration, CfnOutput, aws_iam as iam } from 'aws-cdk-lib';
 import { aws_lambda as lambda } from 'aws-cdk-lib';
 import {
   HttpApi,
@@ -51,6 +51,18 @@ export class ApiConstruct extends Construct {
     props.buckets.photos.grantReadWrite(this.fn);
     props.buckets.voice.grantReadWrite(this.fn);
     props.buckets.reports.grantReadWrite(this.fn);
+
+    // Bedrock permissions for Claude inference (foundation models + cross-region inference profiles)
+    this.fn.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['bedrock:InvokeModel', 'bedrock:InvokeModelWithResponseStream'],
+        resources: [
+          `arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-*`,
+          `arn:aws:bedrock:us-east-1:*:inference-profile/us.anthropic.claude-*`,
+          `arn:aws:bedrock:us-*-1::foundation-model/anthropic.claude-*`,
+        ],
+      }),
+    );
 
     this.httpApi = new HttpApi(this, 'HttpApi', {
       apiName: `lifeos-${props.envName}`,
