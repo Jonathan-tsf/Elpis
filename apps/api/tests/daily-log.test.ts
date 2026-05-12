@@ -73,8 +73,8 @@ describe('PUT /daily-log/:date', () => {
     const input = calls[0]?.args[0].input as Record<string, unknown>;
     expect(input['TableName']).toBe('test');
     const item = input['Item'] as Record<string, unknown>;
-    expect(item['pk']).toBe('USER#me');
-    expect(item['sk']).toBe(`DAY#${DATE}`);
+    expect(item['PK']).toBe('USER#me');
+    expect(item['SK']).toBe(`DAY#${DATE}`);
     expect(item['type']).toBe('DAILY_LOG');
   });
 
@@ -110,8 +110,8 @@ describe('GET /daily-log/:date', () => {
 
   it('returns 200 with the persisted item', async () => {
     const storedItem = {
-      pk: 'USER#me',
-      sk: `DAY#${DATE}`,
+      PK: 'USER#me',
+      SK: `DAY#${DATE}`,
       type: 'DAILY_LOG',
       date: DATE,
       data: VALID_BODY,
@@ -156,24 +156,24 @@ describe('GET /daily-log', () => {
   it('returns sorted items within the date range', async () => {
     const items = [
       {
-        pk: 'USER#me',
-        sk: 'DAY#2026-05-10',
+        PK: 'USER#me',
+        SK: 'DAY#2026-05-10',
         type: 'DAILY_LOG',
         date: '2026-05-10',
         data: { notes: 'day 10' },
         updated_at: 100,
       },
       {
-        pk: 'USER#me',
-        sk: 'DAY#2026-05-05',
+        PK: 'USER#me',
+        SK: 'DAY#2026-05-05',
         type: 'DAILY_LOG',
         date: '2026-05-05',
         data: { notes: 'day 5' },
         updated_at: 50,
       },
       {
-        pk: 'USER#me',
-        sk: 'DAY#2026-04-01',
+        PK: 'USER#me',
+        SK: 'DAY#2026-04-01',
         type: 'DAILY_LOG',
         date: '2026-04-01',
         data: { notes: 'out of range' },

@@ -39,7 +39,7 @@ export async function getItem<T>(
   sk: string,
 ): Promise<T | null> {
   const res = await doc.send(
-    new GetCommand({ TableName: tableName(), Key: { pk, sk } }),
+    new GetCommand({ TableName: tableName(), Key: { PK: pk, SK: sk } }),
   );
   return res.Item != null ? (res.Item as T) : null;
 }
@@ -79,10 +79,10 @@ export async function queryItems<T>(
       KeyConditionExpression = '#pk = :pk';
     }
   } else {
-    ExpressionAttributeNames['#pk'] = 'pk';
+    ExpressionAttributeNames['#pk'] = 'PK';
     ExpressionAttributeValues[':pk'] = pk;
     if (skBegins != null) {
-      ExpressionAttributeNames['#sk'] = 'sk';
+      ExpressionAttributeNames['#sk'] = 'SK';
       ExpressionAttributeValues[':sk'] = skBegins;
       KeyConditionExpression = '#pk = :pk AND begins_with(#sk, :sk)';
     } else {
@@ -127,7 +127,7 @@ export async function updateItem(
   await doc.send(
     new UpdateCommand({
       TableName: tableName(),
-      Key: { pk, sk },
+      Key: { PK: pk, SK: sk },
       UpdateExpression: `SET ${setParts.join(', ')}`,
       ExpressionAttributeNames,
       ExpressionAttributeValues,
@@ -140,7 +140,7 @@ export async function deleteItem(
   pk: string,
   sk: string,
 ): Promise<void> {
-  await doc.send(new DeleteCommand({ TableName: tableName(), Key: { pk, sk } }));
+  await doc.send(new DeleteCommand({ TableName: tableName(), Key: { PK: pk, SK: sk } }));
 }
 
 export async function batchGet<T>(
@@ -152,7 +152,7 @@ export async function batchGet<T>(
   const res = await doc.send(
     new BatchGetCommand({
       RequestItems: {
-        [table]: { Keys: keys.map(({ pk, sk }) => ({ pk, sk })) },
+        [table]: { Keys: keys.map(({ pk, sk }) => ({ PK: pk, SK: sk })) },
       },
     }),
   );

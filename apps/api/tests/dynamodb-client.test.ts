@@ -45,7 +45,7 @@ function makeDoc(): DynamoDBDocumentClient {
 describe('putItem', () => {
   it('sends PutCommand with TableName and Item', async () => {
     ddbMock.on(PutCommand as never).resolves({});
-    const item = { pk: 'USER#me', sk: 'DAY#2024-01-01', value: 42 };
+    const item = { PK: 'USER#me', SK: 'DAY#2024-01-01', value: 42 };
     await putItem(makeDoc(), item);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -65,7 +65,7 @@ describe('getItem', () => {
   });
 
   it('returns the item when present', async () => {
-    const stored = { pk: 'USER#me', sk: 'PROFILE', name: 'Jon' };
+    const stored = { PK: 'USER#me', SK: 'PROFILE', name: 'Jon' };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ddbMock.on(GetCommand as never).resolves({ Item: stored } as any);
     const result = await getItem<typeof stored>(makeDoc(), 'USER#me', 'PROFILE');
@@ -86,7 +86,7 @@ describe('queryItems', () => {
     expect(input['TableName']).toBe(TABLE);
     expect(input['IndexName']).toBeUndefined();
     expect(input['KeyConditionExpression']).toBe('#pk = :pk AND begins_with(#sk, :sk)');
-    expect(input['ExpressionAttributeNames']).toMatchObject({ '#pk': 'pk', '#sk': 'sk' });
+    expect(input['ExpressionAttributeNames']).toMatchObject({ '#pk': 'PK', '#sk': 'SK' });
     expect(input['ExpressionAttributeValues']).toMatchObject({ ':pk': 'USER#me', ':sk': 'DAY#' });
   });
 
@@ -114,7 +114,7 @@ describe('queryItems', () => {
   });
 
   it('returns items from response', async () => {
-    const items = [{ pk: 'USER#me', sk: 'DAY#2024-01-01' }];
+    const items = [{ PK: 'USER#me', SK: 'DAY#2024-01-01' }];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ddbMock.on(QueryCommand as never).resolves({ Items: items } as any);
     const result = await queryItems(makeDoc(), { pk: 'USER#me' });
@@ -132,7 +132,7 @@ describe('updateItem', () => {
     expect(calls).toHaveLength(1);
     const input = calls[0]?.args[0].input as Record<string, unknown>;
     expect(input['TableName']).toBe(TABLE);
-    expect(input['Key']).toEqual({ pk: 'USER#me', sk: 'PROFILE' });
+    expect(input['Key']).toEqual({ PK: 'USER#me', SK: 'PROFILE' });
     expect(input['UpdateExpression']).toBe('SET #k0 = :v0, #k1 = :v1');
     expect(input['ExpressionAttributeNames']).toMatchObject({ '#k0': 'name', '#k1': 'age' });
     expect(input['ExpressionAttributeValues']).toMatchObject({ ':v0': 'Jon', ':v1': 30 });
@@ -149,7 +149,7 @@ describe('deleteItem', () => {
     expect(calls).toHaveLength(1);
     const input = calls[0]?.args[0].input as Record<string, unknown>;
     expect(input['TableName']).toBe(TABLE);
-    expect(input['Key']).toEqual({ pk: 'USER#me', sk: 'PROFILE' });
+    expect(input['Key']).toEqual({ PK: 'USER#me', SK: 'PROFILE' });
   });
 });
 
@@ -160,7 +160,7 @@ describe('batchGet', () => {
   });
 
   it('sends BatchGetCommand and returns items', async () => {
-    const items = [{ pk: 'USER#me', sk: 'PROFILE' }];
+    const items = [{ PK: 'USER#me', SK: 'PROFILE' }];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ddbMock.on(BatchGetCommand as never).resolves({ Responses: { [TABLE]: items } } as any);
     const result = await batchGet(makeDoc(), [{ pk: 'USER#me', sk: 'PROFILE' }]);

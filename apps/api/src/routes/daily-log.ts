@@ -5,8 +5,8 @@ import { dailyLogKey, USER_PK, dateString } from '../services/keys';
 import { getItem, putItem, queryItems, getDocClient } from '../services/dynamodb-client';
 
 type DailyLogItem = {
-  pk: string;
-  sk: string;
+  PK: string;
+  SK: string;
   type: 'DAILY_LOG';
   date: string;
   data: z.infer<typeof DailyLogInput>;
@@ -29,8 +29,8 @@ export function dailyLogRoute() {
 
     const { pk, sk } = dailyLogKey(dateParam);
     const item: DailyLogItem = {
-      pk,
-      sk,
+      PK: pk,
+      SK: sk,
       type: 'DAILY_LOG',
       date: dateParam,
       data: parsed.data,
