@@ -7,3 +7,7 @@ export * from './stats';
 export * from './quest';
 export * from './streak';
 export * from './quests-catalog';
+export * from './achievements-catalog';
+export * from './photo-analysis';
+export * from './blood-test';
+export * from './perf-test';

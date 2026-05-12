@@ -1,12 +1,16 @@
 import { Hono } from 'hono';
 import { GetObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { PhotoPresignInput, PhotoConfirmInput, type PhotoTag } from '@lifeos/shared';
-import { photoKey, USER_PK, dateString } from '../services/keys';
+import { PhotoPresignInput, PhotoConfirmInput, type PhotoTag, type PhotoAnalysis } from '@lifeos/shared';
+import { photoKey, USER_PK, dateString, photoAnalysisKey } from '../services/keys';
 import { putItem, queryItems, getDocClient } from '../services/dynamodb-client';
 import { deltasForPhoto } from '../services/xp-engine';
 import { awardXp } from '../services/xp-persistence';
 import { getS3Client, photosBucket } from '../services/s3-client';
+import { invokeClaude } from '../services/bedrock-client';
+import { CLAUDE_SONNET_4_6 } from '../services/claude-models';
+
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 type PhotoItem = {
   PK: string;
@@ -125,6 +129,91 @@ export function photosRoute() {
         created_at: i.created_at,
       })),
     });
+  });
+
+  // POST /:id/analyze — analyze photo with Claude vision
+  app.post('/:id/analyze', async (c) => {
+    const id = c.req.param('id');
+    const bodyRaw = await c.req.json().catch(() => ({}));
+    const scope = (bodyRaw as { scope?: string }).scope ?? 'auto';
+
+    const doc = getDocClient();
+    const items = await queryItems<PhotoItem>(doc, { pk: USER_PK, skBegins: 'PHOTO#' });
+    const found = items.find((i) => i.id === id);
+    if (!found) return c.json({ error: 'not found' }, 404);
+
+    const Bucket = photosBucket();
+    const obj = await getS3Client().send(new GetObjectCommand({ Bucket, Key: found.s3_key }));
+    const chunks: Uint8Array[] = [];
+    for await (const chunk of obj.Body as AsyncIterable<Uint8Array>) {
+      chunks.push(chunk);
+    }
+    const buffer = Buffer.concat(chunks);
+    if (buffer.byteLength > MAX_IMAGE_BYTES) {
+      return c.json({ error: 'image too large (>5MB)' }, 400);
+    }
+    const b64 = buffer.toString('base64');
+    const ct = obj.ContentType ?? 'image/jpeg';
+
+    const scopeLabels: Record<string, string> = {
+      face: 'visage et traits du visage',
+      body: 'composition corporelle et proportions',
+      posture: 'posture et alignement',
+      fit: 'tenue vestimentaire et style',
+      auto: 'tous les aspects visibles',
+    };
+    const scopeLabel = scopeLabels[scope] ?? 'tous les aspects visibles';
+
+    const system =
+      'Tu es un analyste looksmax francophone, expert pragmatique en physical aesthetics. Tu donnes des évaluations honnêtes mais constructives. Note les points forts. Suggère 3-5 axes d\'amélioration concrets. Si demandé tu peux estimer des ratios (jawline angle, face thirds, eye area, philtrum). Sois en markdown.';
+
+    const res = await invokeClaude({
+      model: CLAUDE_SONNET_4_6,
+      system,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: ct, data: b64 } },
+            { type: 'text', text: `Analyse cette photo. Scope: ${scopeLabel}. Donne ton analyse en markdown structuré.` },
+          ],
+        },
+      ],
+      max_tokens: 1500,
+    });
+
+    const markdown = res.content
+      .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
+      .map((b) => b.text)
+      .join('\n');
+
+    const analysisId = crypto.randomUUID();
+    const today = dateString();
+    const { pk, sk } = photoAnalysisKey(today, analysisId);
+    const analysis: PhotoAnalysis = {
+      id: analysisId,
+      photo_id: id,
+      date: today,
+      scope: scope as PhotoAnalysis['scope'],
+      markdown,
+      model: CLAUDE_SONNET_4_6,
+      created_at: Date.now(),
+    };
+    await putItem(doc, { PK: pk, SK: sk, type: 'PHOTO_ANALYSIS', ...analysis });
+
+    return c.json(analysis);
+  });
+
+  // GET /:id/analyses — list past analyses for a photo
+  app.get('/:id/analyses', async (c) => {
+    const id = c.req.param('id');
+    const doc = getDocClient();
+    const items = await queryItems<PhotoAnalysis & { PK: string; SK: string }>(doc, {
+      pk: USER_PK,
+      skBegins: 'PHOTOAN#',
+    });
+    const forPhoto = items.filter((i) => i.photo_id === id);
+    return c.json({ analyses: forPhoto });
   });
 
   // GET /:id/url — get signed download URL

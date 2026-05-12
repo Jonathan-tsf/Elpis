@@ -48,6 +48,18 @@ export function profileKey(): { pk: string; sk: string } {
   return { pk: USER_PK, sk: 'PROFILE' };
 }
 
+export function photoAnalysisKey(date: string, id: string): { pk: string; sk: string } {
+  return { pk: USER_PK, sk: `PHOTOAN#${date}#${id}` };
+}
+
+export function bloodTestKey(date: string, id: string): { pk: string; sk: string } {
+  return { pk: USER_PK, sk: `BLOOD#${date}#${id}` };
+}
+
+export function perfTestKey(date: string, id: string): { pk: string; sk: string } {
+  return { pk: USER_PK, sk: `PERF#${date}#${id}` };
+}
+
 export function dateString(date?: Date): string {
   const d = date ?? new Date();
   return d.toISOString().slice(0, 10);

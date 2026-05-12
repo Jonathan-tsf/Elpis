@@ -1,4 +1,4 @@
-import { type DailyLogInput, type WorkoutInput, type Stats, type StatName, type PhotoConfirmInput } from '@lifeos/shared';
+import { type DailyLogInput, type WorkoutInput, type Stats, type StatName, type PhotoConfirmInput, type PerfTestInput } from '@lifeos/shared';
 
 export type XpDelta = { stat: StatName; amount: number; reason: string };
 
@@ -93,6 +93,20 @@ export function deltasForPhoto(input: PhotoConfirmInput): XpDelta[] {
   out.push({ stat: 'discipline', amount: 5, reason: 'photo_logged' });
   if (input.tags.some((t) => PROTOCOL_TAGS.has(t))) {
     out.push({ stat: 'appearance', amount: 15, reason: 'photo_protocolaire' });
+  }
+  return out;
+}
+
+const STRENGTH_PERF_TESTS = new Set(['1rm_bench', '1rm_squat', '1rm_deadlift', '1rm_ohp', 'pullups_max', 'pushups_max', 'plank_max']);
+const CARDIO_PERF_TESTS = new Set(['vo2max', 'mile_time', '5k_time']);
+
+export function deltasForPerfTest(input: PerfTestInput): XpDelta[] {
+  const out: XpDelta[] = [];
+  out.push({ stat: 'discipline', amount: 15, reason: 'perf_test_logged' });
+  if (STRENGTH_PERF_TESTS.has(input.type)) {
+    out.push({ stat: 'force', amount: 50, reason: `perf_test_strength:${input.type}` });
+  } else if (CARDIO_PERF_TESTS.has(input.type)) {
+    out.push({ stat: 'endurance', amount: 50, reason: `perf_test_cardio:${input.type}` });
   }
   return out;
 }

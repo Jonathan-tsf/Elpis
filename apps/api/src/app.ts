@@ -12,6 +12,9 @@ import { briefingsRoute } from './routes/briefings';
 import { coachRoute } from './routes/coach';
 import { analysisRoute } from './routes/analysis';
 import { voiceJournalRoute } from './routes/voice-journal';
+import { achievementsRoute } from './routes/achievements';
+import { bloodTestsRoute } from './routes/blood-tests';
+import { perfTestsRoute } from './routes/perf-tests';
 import { authMiddleware, type JwtVerifier } from './middlewares/auth';
 
 export interface AppDeps {
@@ -58,5 +61,14 @@ export function createApp(deps: AppDeps) {
   app.use('/voice-journal/*', authMiddleware(deps.jwtVerifierStub));
   app.use('/voice-journal', authMiddleware(deps.jwtVerifierStub));
   app.route('/voice-journal', voiceJournalRoute());
+  app.use('/achievements/*', authMiddleware(deps.jwtVerifierStub));
+  app.use('/achievements', authMiddleware(deps.jwtVerifierStub));
+  app.route('/achievements', achievementsRoute());
+  app.use('/blood-tests/*', authMiddleware(deps.jwtVerifierStub));
+  app.use('/blood-tests', authMiddleware(deps.jwtVerifierStub));
+  app.route('/blood-tests', bloodTestsRoute());
+  app.use('/perf-tests/*', authMiddleware(deps.jwtVerifierStub));
+  app.use('/perf-tests', authMiddleware(deps.jwtVerifierStub));
+  app.route('/perf-tests', perfTestsRoute());
   return app;
 }

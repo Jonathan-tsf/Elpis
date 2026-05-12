@@ -10,7 +10,7 @@ import { apiFetch } from '@/lib/api-client';
 import { todayStr, shiftDate, formatHumanDate } from '@/lib/dates';
 import { showXpToast, type XpDelta } from '@/components/xp-toast';
 import { AnalyseButton } from '@/components/analyse-button';
-import type { Workout } from '@lifeos/shared';
+import type { Workout, PerfTest, PerfTestType } from '@lifeos/shared';
 
 // ─── Local form schema ────────────────────────────────────────────────────────
 
@@ -64,7 +64,7 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 // ─── Main Page ───────────────────────────────────────────────────────────────
 
 export default function WorkoutsPage() {
-  const [tab, setTab] = useState<'new' | 'history'>('new');
+  const [tab, setTab] = useState<'new' | 'history' | 'perf'>('new');
   const [xpFloater, setXpFloater] = useState<{ total: number; key: number } | null>(null);
   const today = todayStr();
 
@@ -83,6 +83,7 @@ export default function WorkoutsPage() {
         {([
           ['new', 'Nouvelle séance'],
           ['history', 'Historique'],
+          ['perf', 'Tests de perf'],
         ] as const).map(([key, label]) => (
           <button
             key={key}
@@ -108,8 +109,10 @@ export default function WorkoutsPage() {
             setXpFloater({ total, key: Date.now() });
           }}
         />
-      ) : (
+      ) : tab === 'history' ? (
         <HistoryTab today={today} />
+      ) : (
+        <PerfTestsTab today={today} />
       )}
 
       {/* XP floater */}
@@ -456,6 +459,181 @@ function HistoryTab({ today }: { today: string }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+// ─── Perf Tests Tab ───────────────────────────────────────────────────────────
+
+const PERF_TYPES: PerfTestType[] = [
+  '1rm_bench', '1rm_squat', '1rm_deadlift', '1rm_ohp',
+  'pullups_max', 'pushups_max', 'plank_max', 'vo2max', 'mile_time', '5k_time',
+];
+
+const PERF_LABELS: Record<PerfTestType, string> = {
+  '1rm_bench': 'Bench 1RM',
+  '1rm_squat': 'Squat 1RM',
+  '1rm_deadlift': 'Deadlift 1RM',
+  '1rm_ohp': 'OHP 1RM',
+  'pullups_max': 'Tractions max',
+  'pushups_max': 'Pompes max',
+  'plank_max': 'Gainage max',
+  'vo2max': 'VO2max',
+  'mile_time': 'Mile (temps)',
+  '5k_time': '5K (temps)',
+};
+
+const PERF_UNITS: Record<PerfTestType, string> = {
+  '1rm_bench': 'kg', '1rm_squat': 'kg', '1rm_deadlift': 'kg', '1rm_ohp': 'kg',
+  'pullups_max': 'reps', 'pushups_max': 'reps', 'plank_max': 'sec',
+  'vo2max': 'ml/kg/min', 'mile_time': 'sec', '5k_time': 'sec',
+};
+
+function PerfTestsTab({ today }: { today: string }) {
+  const [tests, setTests] = useState<PerfTest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [type, setType] = useState<PerfTestType>('1rm_bench');
+  const [value, setValue] = useState('');
+  const [date, setDate] = useState(today);
+  const [notes, setNotes] = useState('');
+
+  const load = () => {
+    setLoading(true);
+    apiFetch<{ items: PerfTest[] }>('/perf-tests')
+      .then((r) => setTests([...r.items].reverse()))
+      .catch(() => setTests([]))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!value) return;
+    setSubmitting(true);
+    try {
+      const res = await apiFetch<PerfTest & { xp_deltas: XpDelta[] }>('/perf-tests', {
+        method: 'POST',
+        body: JSON.stringify({
+          type,
+          value: parseFloat(value),
+          unit: PERF_UNITS[type],
+          date,
+          ...(notes ? { notes } : {}),
+        }),
+      });
+      if (res.xp_deltas && res.xp_deltas.length > 0) {
+        const total = res.xp_deltas.reduce((s, d) => s + d.amount, 0);
+        showXpToast(res.xp_deltas, total);
+      } else {
+        toast.success('Test enregistré !');
+      }
+      setValue('');
+      setNotes('');
+      load();
+    } catch {
+      toast.error("Erreur lors de l'enregistrement.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Form */}
+      <section className="rounded-lg border border-bg-strong bg-bg-subtle p-5 space-y-4">
+        <h3 className="font-display tracking-widest text-xs text-accent-endurance uppercase">
+          Nouveau test
+        </h3>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelCls}>Type</label>
+              <select
+                value={type}
+                onChange={(e) => setType(e.target.value as PerfTestType)}
+                className={inputCls}
+              >
+                {PERF_TYPES.map((t) => (
+                  <option key={t} value={t}>{PERF_LABELS[t]}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Date</label>
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Valeur ({PERF_UNITS[type]})</label>
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder={`ex: ${type.includes('1rm') ? '100' : '10'}`}
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Notes</label>
+              <input
+                type="text"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Conditions, ressenti…"
+                className={inputCls}
+              />
+            </div>
+          </div>
+          <button
+            type="submit"
+            disabled={submitting || !value}
+            className="w-full rounded-lg bg-accent-endurance text-bg-DEFAULT font-bold py-2.5 text-sm tracking-wider hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {submitting && <Loader2 size={14} className="animate-spin" />}
+            Enregistrer
+          </button>
+        </form>
+      </section>
+
+      {/* History table */}
+      <section className="space-y-2">
+        <h3 className="font-display tracking-widest text-xs text-accent-endurance uppercase">
+          Historique
+        </h3>
+        {loading ? (
+          <div className="text-text-muted text-sm">…</div>
+        ) : tests.length === 0 ? (
+          <div className="rounded-lg border border-bg-strong bg-bg-subtle p-6 text-center">
+            <p className="text-text-muted text-sm">Aucun test enregistré.</p>
+          </div>
+        ) : (
+          <div className="rounded-lg border border-bg-strong overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-bg-strong bg-bg-subtle">
+                  <th className="text-left text-xs text-text-muted font-medium px-3 py-2">Type</th>
+                  <th className="text-right text-xs text-text-muted font-medium px-3 py-2">Valeur</th>
+                  <th className="text-right text-xs text-text-muted font-medium px-3 py-2">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tests.map((t, i) => (
+                  <tr key={t.id} className={i % 2 === 0 ? 'bg-bg-DEFAULT' : 'bg-bg-subtle'}>
+                    <td className="px-3 py-2 text-text-DEFAULT">{PERF_LABELS[t.type as PerfTestType] ?? t.type}</td>
+                    <td className="px-3 py-2 text-right font-mono text-accent-endurance">
+                      {t.value} <span className="text-text-muted text-xs">{t.unit}</span>
+                    </td>
+                    <td className="px-3 py-2 text-right font-mono text-xs text-text-muted">{t.date}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

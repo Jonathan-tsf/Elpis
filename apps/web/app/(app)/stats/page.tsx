@@ -19,7 +19,8 @@ import { todayStr, shiftDate } from '@/lib/dates';
 import { StatsRadar } from '@/components/radar-chart';
 import { StatBar } from '@/components/stat-bar';
 import { AnalyseButton } from '@/components/analyse-button';
-import type { Stats, StatName } from '@lifeos/shared';
+import { Plus, Trash2 } from 'lucide-react';
+import type { Stats, StatName, BloodTest, BloodMarker } from '@lifeos/shared';
 
 // ─── Measurement form schema ──────────────────────────────────────────────────
 
@@ -156,6 +157,12 @@ export default function StatsPage() {
         <MeasurementForm today={todayStr()} />
         <MeasurementChart />
       </section>
+
+      {/* ── Bilan sanguin ── */}
+      <section className="space-y-4">
+        <SectionHeading>Bilan sanguin</SectionHeading>
+        <BloodTestSection today={todayStr()} />
+      </section>
     </div>
   );
 }
@@ -231,6 +238,154 @@ function MeasurementForm({ today }: { today: string }) {
         Enregistrer la mesure
       </button>
     </form>
+  );
+}
+
+// ─── Measurement Chart ────────────────────────────────────────────────────────
+
+// ─── Blood Test Section ───────────────────────────────────────────────────────
+
+function BloodTestSection({ today }: { today: string }) {
+  const [tests, setTests] = useState<BloodTest[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [date, setDate] = useState(today);
+  const [lab, setLab] = useState('');
+  const [notes, setNotes] = useState('');
+  const [markers, setMarkers] = useState<Omit<BloodMarker, 'reference_range'>[]>([{ name: '', value: 0, unit: '' }]);
+  const [submitting, setSubmitting] = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    apiFetch<{ items: BloodTest[] }>('/blood-tests')
+      .then((r) => setTests(r.items))
+      .catch(() => setTests([]))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const addMarker = () => setMarkers((m) => [...m, { name: '', value: 0, unit: '' }]);
+  const removeMarker = (i: number) => setMarkers((m) => m.filter((_, idx) => idx !== i));
+  const updateMarker = (i: number, field: string, val: string | number) =>
+    setMarkers((m) => m.map((mk, idx) => idx === i ? { ...mk, [field]: val } : mk));
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    try {
+      await apiFetch('/blood-tests', {
+        method: 'POST',
+        body: JSON.stringify({
+          date,
+          ...(lab ? { lab } : {}),
+          ...(notes ? { notes } : {}),
+          markers: markers.filter((m) => m.name.trim()),
+        }),
+      });
+      toast.success('Bilan enregistré !');
+      setMarkers([{ name: '', value: 0, unit: '' }]);
+      setLab('');
+      setNotes('');
+      load();
+    } catch {
+      toast.error("Erreur lors de l'enregistrement.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-bg-strong bg-bg-subtle p-5">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className={labelCls}>Date</label>
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
+          </div>
+          <div>
+            <label className={labelCls}>Laboratoire</label>
+            <input type="text" value={lab} onChange={(e) => setLab(e.target.value)} placeholder="Synlab…" className={inputCls} />
+          </div>
+        </div>
+        <div>
+          <label className={labelCls}>Notes</label>
+          <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="À jeun, contexte…" className={inputCls} />
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className={labelCls}>Marqueurs</label>
+            <button type="button" onClick={addMarker} className="text-xs text-accent-vitality flex items-center gap-1">
+              <Plus size={10} /> Ajouter
+            </button>
+          </div>
+          {markers.map((mk, i) => (
+            <div key={i} className="grid grid-cols-3 gap-2 items-center">
+              <input
+                type="text"
+                value={mk.name}
+                onChange={(e) => updateMarker(i, 'name', e.target.value)}
+                placeholder="TSH"
+                className={inputCls}
+              />
+              <input
+                type="number"
+                step="0.001"
+                value={mk.value}
+                onChange={(e) => updateMarker(i, 'value', parseFloat(e.target.value))}
+                placeholder="1.5"
+                className={inputCls}
+              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={mk.unit}
+                  onChange={(e) => updateMarker(i, 'unit', e.target.value)}
+                  placeholder="mUI/L"
+                  className={inputCls}
+                />
+                <button type="button" onClick={() => removeMarker(i)} className="text-text-muted hover:text-red-400 flex-shrink-0">
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full rounded-lg bg-accent-vitality text-bg-DEFAULT font-bold py-2.5 text-sm tracking-wider hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+        >
+          {submitting && <Loader2 size={14} className="animate-spin" />}
+          Enregistrer le bilan
+        </button>
+      </form>
+
+      {loading ? (
+        <div className="text-text-muted text-sm">…</div>
+      ) : tests.length > 0 && (
+        <div className="space-y-3">
+          {tests.map((t) => (
+            <div key={t.id} className="rounded-lg border border-bg-strong bg-bg-subtle p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="font-mono text-xs text-text-muted">{t.date}</span>
+                {t.lab && <span className="text-xs text-text-DEFAULT">{t.lab}</span>}
+              </div>
+              {t.markers.length > 0 && (
+                <div className="grid grid-cols-3 gap-1 text-xs">
+                  {t.markers.map((m, i) => (
+                    <div key={i} className="flex items-baseline gap-1">
+                      <span className="text-text-muted">{m.name}</span>
+                      <span className="font-mono text-accent-vitality">{m.value}</span>
+                      {m.unit && <span className="text-text-muted">{m.unit}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
