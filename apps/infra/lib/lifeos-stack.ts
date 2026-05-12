@@ -21,8 +21,16 @@ export class LifeOsStack extends Stack {
     this.data = new DataConstruct(this, 'Data', { envName: props.envName });
     this.auth = new AuthConstruct(this, 'Auth', {
       envName: props.envName,
-      webCallbackUrls: [`${props.webBaseUrl}/auth/callback`, 'http://localhost:3000/auth/callback'],
-      webLogoutUrls: [`${props.webBaseUrl}/`, 'http://localhost:3000/'],
+      webCallbackUrls: [
+        `${props.webBaseUrl}/auth/callback`,
+        'http://localhost:3000/auth/callback',
+        'http://localhost:3002/auth/callback',
+      ],
+      webLogoutUrls: [
+        `${props.webBaseUrl}/`,
+        'http://localhost:3000/',
+        'http://localhost:3002/',
+      ],
     });
     this.api = new ApiConstruct(this, 'Api', {
       envName: props.envName,

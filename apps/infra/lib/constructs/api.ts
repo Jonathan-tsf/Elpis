@@ -55,7 +55,7 @@ export class ApiConstruct extends Construct {
     this.httpApi = new HttpApi(this, 'HttpApi', {
       apiName: `lifeos-${props.envName}`,
       corsPreflight: {
-        allowOrigins: ['http://localhost:3000'],
+        allowOrigins: ['http://localhost:3000', 'http://localhost:3002'],
         allowMethods: [CorsHttpMethod.ANY],
         allowHeaders: ['Authorization', 'Content-Type'],
       },
