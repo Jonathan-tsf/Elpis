@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { deltasForDailyLog, applyDeltasToStats, XP_PER_LEVEL, type XpDelta } from '../src/services/xp-engine';
-import type { DailyLogInput } from '@lifeos/shared';
+import { deltasForDailyLog, deltasForWorkout, applyDeltasToStats, XP_PER_LEVEL, type XpDelta } from '../src/services/xp-engine';
+import type { DailyLogInput, WorkoutInput } from '@lifeos/shared';
 
 describe('deltasForDailyLog', () => {
   it('empty input yields only always-on +20 Discipline', () => {
@@ -76,6 +76,56 @@ describe('deltasForDailyLog', () => {
     const deltas = deltasForDailyLog({ sleep: { duration_min: 360 } });
     expect(deltas.find((d) => d.reason === 'sleep_8h_plus')).toBeUndefined();
     expect(deltas.find((d) => d.reason === 'sleep_7h_plus')).toBeUndefined();
+  });
+});
+
+describe('deltasForWorkout', () => {
+  const baseExercises: WorkoutInput['exercises'] = [
+    { name: 'Bench Press', sets: [{ reps: 8 }, { reps: 8 }, { reps: 8 }] },
+  ];
+
+  it('type=push, no rpe => 2 deltas (discipline + force)', () => {
+    const input: WorkoutInput = { date: '2026-05-10', type: 'push', exercises: baseExercises };
+    const deltas = deltasForWorkout(input);
+    expect(deltas).toHaveLength(2);
+    expect(deltas.find((d) => d.reason === 'workout_completed')).toBeDefined();
+    expect(deltas.find((d) => d.reason === 'workout_strength')).toBeDefined();
+    expect(deltas.find((d) => d.stat === 'force')).toBeDefined();
+  });
+
+  it('type=push with rpe=9 => 3 deltas (discipline + force + high_rpe force)', () => {
+    const input: WorkoutInput = { date: '2026-05-10', type: 'push', rpe: 9, exercises: baseExercises };
+    const deltas = deltasForWorkout(input);
+    expect(deltas).toHaveLength(3);
+    expect(deltas.find((d) => d.reason === 'workout_high_rpe')).toBeDefined();
+    expect(deltas.find((d) => d.reason === 'workout_high_rpe')?.stat).toBe('force');
+  });
+
+  it('type=cardio, no rpe => 2 deltas (discipline + endurance)', () => {
+    const input: WorkoutInput = { date: '2026-05-10', type: 'cardio', exercises: [] };
+    const deltas = deltasForWorkout(input);
+    expect(deltas).toHaveLength(2);
+    expect(deltas.find((d) => d.reason === 'workout_cardio')).toBeDefined();
+    expect(deltas.find((d) => d.stat === 'endurance')).toBeDefined();
+  });
+
+  it('type=push with 15 sets total => 3 deltas (discipline + force + volume_12_sets endurance)', () => {
+    const fifteenSets: WorkoutInput['exercises'] = [
+      { name: 'Squat', sets: Array.from({ length: 15 }, () => ({ reps: 8 })) },
+    ];
+    const input: WorkoutInput = { date: '2026-05-10', type: 'push', exercises: fifteenSets };
+    const deltas = deltasForWorkout(input);
+    expect(deltas).toHaveLength(3);
+    expect(deltas.find((d) => d.reason === 'workout_volume_12_sets')).toBeDefined();
+    expect(deltas.find((d) => d.reason === 'workout_volume_12_sets')?.stat).toBe('endurance');
+  });
+
+  it('type=mobility => 1 delta (only discipline)', () => {
+    const input: WorkoutInput = { date: '2026-05-10', type: 'mobility', exercises: [] };
+    const deltas = deltasForWorkout(input);
+    expect(deltas).toHaveLength(1);
+    expect(deltas[0]?.reason).toBe('workout_completed');
+    expect(deltas[0]?.stat).toBe('discipline');
   });
 });
 

@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import { healthcheckRoute } from './routes/healthcheck';
 import { meRoute } from './routes/me';
 import { dailyLogRoute } from './routes/daily-log';
+import { workoutsRoute } from './routes/workouts';
+import { measurementsRoute } from './routes/measurements';
 import { authMiddleware, type JwtVerifier } from './middlewares/auth';
 
 export interface AppDeps {
@@ -18,5 +20,11 @@ export function createApp(deps: AppDeps) {
   app.use('/daily-log/*', authMiddleware(deps.jwtVerifierStub));
   app.use('/daily-log', authMiddleware(deps.jwtVerifierStub));
   app.route('/daily-log', dailyLogRoute());
+  app.use('/workouts/*', authMiddleware(deps.jwtVerifierStub));
+  app.use('/workouts', authMiddleware(deps.jwtVerifierStub));
+  app.route('/workouts', workoutsRoute());
+  app.use('/measurements/*', authMiddleware(deps.jwtVerifierStub));
+  app.use('/measurements', authMiddleware(deps.jwtVerifierStub));
+  app.route('/measurements', measurementsRoute());
   return app;
 }

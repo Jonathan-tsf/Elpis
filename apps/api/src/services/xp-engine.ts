@@ -1,4 +1,4 @@
-import { type DailyLogInput, type Stats, type StatName } from '@lifeos/shared';
+import { type DailyLogInput, type WorkoutInput, type Stats, type StatName } from '@lifeos/shared';
 
 export type XpDelta = { stat: StatName; amount: number; reason: string };
 
@@ -47,6 +47,33 @@ export function deltasForDailyLog(input: DailyLogInput): XpDelta[] {
   }
 
   return deltas;
+}
+
+export function deltasForWorkout(input: WorkoutInput): XpDelta[] {
+  const out: XpDelta[] = [];
+  out.push({ stat: 'discipline', amount: 20, reason: 'workout_completed' });
+
+  const isStrength = ['push', 'pull', 'legs', 'upper', 'lower', 'full'].includes(input.type);
+  const isCardio = input.type === 'cardio';
+
+  if (isStrength) {
+    out.push({ stat: 'force', amount: 30, reason: 'workout_strength' });
+  }
+  if (isCardio) {
+    out.push({ stat: 'endurance', amount: 30, reason: 'workout_cardio' });
+  }
+  if (input.rpe != null && input.rpe >= 8) {
+    out.push({
+      stat: isStrength ? 'force' : 'endurance',
+      amount: 20,
+      reason: 'workout_high_rpe',
+    });
+  }
+  const totalSets = input.exercises.reduce((acc, e) => acc + e.sets.length, 0);
+  if (totalSets >= 12) {
+    out.push({ stat: 'endurance', amount: 10, reason: 'workout_volume_12_sets' });
+  }
+  return out;
 }
 
 const ALL_STATS: StatName[] = ['force', 'endurance', 'vitality', 'discipline', 'appearance', 'spirit'];
