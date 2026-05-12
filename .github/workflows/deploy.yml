@@ -36,4 +36,4 @@ jobs:
           ENV_NAME: dev
           GIT_SHA: ${{ github.sha }}
           WEB_BASE_URL: ${{ secrets.WEB_BASE_URL }}
-        run: pnpm --filter @lifeos/infra deploy
+        run: pnpm --filter @lifeos/infra run deploy
