@@ -35,8 +35,8 @@ export class ApiConstruct extends Construct {
       runtime: lambda.Runtime.NODEJS_20_X,
       handler: 'lambda.handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '../../../api/dist')),
-      memorySize: 512,
-      timeout: Duration.seconds(15),
+      memorySize: 1024,
+      timeout: Duration.seconds(60),
       environment: {
         TABLE_NAME: props.table.tableName,
         PHOTOS_BUCKET: props.buckets.photos.bucketName,
