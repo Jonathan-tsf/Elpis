@@ -16,6 +16,7 @@ import { achievementsRoute } from './routes/achievements';
 import { bloodTestsRoute } from './routes/blood-tests';
 import { perfTestsRoute } from './routes/perf-tests';
 import { seasonsRoute } from './routes/seasons';
+import { customHabitsRoute } from './routes/custom-habits';
 import { authMiddleware, type JwtVerifier } from './middlewares/auth';
 
 export interface AppDeps {
@@ -74,5 +75,8 @@ export function createApp(deps: AppDeps) {
   app.use('/seasons/*', authMiddleware(deps.jwtVerifierStub));
   app.use('/seasons', authMiddleware(deps.jwtVerifierStub));
   app.route('/seasons', seasonsRoute());
+  app.use('/habits/*', authMiddleware(deps.jwtVerifierStub));
+  app.use('/habits', authMiddleware(deps.jwtVerifierStub));
+  app.route('/habits', customHabitsRoute());
   return app;
 }

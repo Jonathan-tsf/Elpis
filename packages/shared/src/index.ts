@@ -12,3 +12,4 @@ export * from './photo-analysis';
 export * from './blood-test';
 export * from './perf-test';
 export * from './season';
+export * from './custom-habit';

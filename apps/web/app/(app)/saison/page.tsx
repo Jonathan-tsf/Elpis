@@ -1,10 +1,13 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Loader2, ChevronDown, ChevronUp, Wand2, Plus, CheckCircle2, Circle } from 'lucide-react';
+import { Loader2, ChevronDown, ChevronUp, Wand2, Plus, CheckCircle2, Circle, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api-client';
-import type { Season, SeasonInput } from '@lifeos/shared';
+import type { Season, SeasonInput, StatName } from '@lifeos/shared';
 
-// ---- helpers ----
+// ────────────────────────────────────────────────────────────────────────────
+// helpers
+// ────────────────────────────────────────────────────────────────────────────
 
 function daysLeft(endDate: string): number {
   const today = new Date().toISOString().slice(0, 10);
@@ -16,147 +19,162 @@ function defaultDateRange(): { start: string; end: string } {
   const start = new Date();
   const end = new Date(start);
   end.setMonth(end.getMonth() + 3);
-  return {
-    start: start.toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10),
-  };
+  return { start: start.toISOString().slice(0, 10), end: end.toISOString().slice(0, 10) };
 }
 
-// ---- sub-components ----
+const STATS: { value: StatName; label: string; color: string }[] = [
+  { value: 'force', label: 'Force', color: 'text-accent-force' },
+  { value: 'endurance', label: 'Endurance', color: 'text-accent-endurance' },
+  { value: 'vitality', label: 'Vitalité', color: 'text-accent-vitality' },
+  { value: 'discipline', label: 'Discipline', color: 'text-accent-discipline' },
+  { value: 'appearance', label: 'Apparence', color: 'text-accent-appearance' },
+  { value: 'spirit', label: 'Esprit', color: 'text-accent-spirit' },
+];
 
-function SeasonQuestRow({
-  quest,
-  seasonId,
-  onComplete,
-}: {
-  quest: Season['quests'][0];
-  seasonId: string;
-  onComplete: () => void;
-}) {
-  const [completing, setCompleting] = useState(false);
-
-  const handleComplete = async () => {
-    setCompleting(true);
-    try {
-      await apiFetch(`/seasons/${seasonId}/quests/${quest.id}/complete`, { method: 'POST' });
-      onComplete();
-    } catch {
-      // silently fail
-    } finally {
-      setCompleting(false);
-    }
-  };
-
-  return (
-    <div className="flex items-start gap-3 p-3 rounded-lg border border-bg-strong bg-bg-subtle">
-      <button
-        onClick={quest.done ? undefined : handleComplete}
-        disabled={quest.done || completing}
-        className="mt-0.5 shrink-0 disabled:cursor-default"
-        title={quest.done ? 'Accomplie' : 'Marquer comme accomplie'}
-      >
-        {completing ? (
-          <Loader2 size={18} className="animate-spin text-accent-xp" />
-        ) : quest.done ? (
-          <CheckCircle2 size={18} className="text-accent-xp" />
-        ) : (
-          <Circle size={18} className="text-text-muted hover:text-accent-spirit transition-colors" />
-        )}
-      </button>
-      <div className="flex-1 min-w-0">
-        <div className={`text-sm font-medium ${quest.done ? 'line-through text-text-muted' : ''}`}>
-          {quest.title}
-        </div>
-        {quest.description && (
-          <div className="text-xs text-text-muted mt-0.5">{quest.description}</div>
-        )}
-        <div className="text-xs text-accent-xp mt-1">{quest.xp_reward.toLocaleString()} XP</div>
-      </div>
-    </div>
-  );
+function reportError(label: string, e: unknown) {
+  // eslint-disable-next-line no-console
+  console.error('[saison]', label, e);
+  toast.error(`${label} : ${e instanceof Error ? e.message : String(e)}`);
 }
 
-function ActiveSeasonView({ season, onEnd }: { season: Season; onEnd: () => void }) {
+function StatBadge({ stat }: { stat?: StatName }) {
+  if (!stat) return null;
+  const meta = STATS.find((s) => s.value === stat);
+  if (!meta) return null;
+  return <span className={`text-[10px] uppercase tracking-wider ${meta.color}`}>{meta.label}</span>;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Active season view
+// ────────────────────────────────────────────────────────────────────────────
+
+function ActiveSeasonView({ season, onChange }: { season: Season; onChange: () => void }) {
   const [ending, setEnding] = useState(false);
-  const [currentSeason, setCurrentSeason] = useState<Season>(season);
+  const [completingId, setCompletingId] = useState<string | null>(null);
 
-  const reloadSeason = async () => {
+  const completeQuest = async (questId: string) => {
+    setCompletingId(questId);
     try {
-      const updated = await apiFetch<Season>(`/seasons/${season.id}`);
-      setCurrentSeason(updated);
-    } catch {
-      // ignore
+      await apiFetch(`/seasons/${season.id}/quests/${questId}/complete`, { method: 'POST' });
+      toast.success('Quête accomplie !');
+      onChange();
+    } catch (e) {
+      reportError('Échec validation quête', e);
+    } finally {
+      setCompletingId(null);
     }
   };
 
-  const handleEnd = async () => {
-    if (!confirm('Terminer cette saison et générer un récap IA ?')) return;
+  const endSeason = async () => {
+    if (!confirm('Terminer cette saison et générer un récap IA ? (~30s)')) return;
     setEnding(true);
     try {
       await apiFetch(`/seasons/${season.id}/end`, { method: 'POST' });
-      onEnd();
-    } catch {
-      // ignore
+      toast.success('Saison terminée, récap généré.');
+      onChange();
+    } catch (e) {
+      reportError('Échec fin de saison', e);
     } finally {
       setEnding(false);
     }
   };
 
-  const remaining = daysLeft(currentSeason.end_date);
+  const remaining = daysLeft(season.end_date);
+  const doneCount = season.quests.filter((q) => q.done).length;
+  const progress = season.quests.length > 0 ? Math.round((doneCount / season.quests.length) * 100) : 0;
 
   return (
     <div className="space-y-6">
-      {/* Header card */}
-      <div className="rounded-lg border border-accent-spirit/30 bg-bg-subtle p-6 space-y-2">
-        <div className="flex items-start justify-between gap-3">
-          <h1 className="font-display tracking-wider text-xl text-accent-spirit">
-            {currentSeason.name}
-          </h1>
+      {/* Header */}
+      <div className="rounded-lg border border-accent-spirit/30 bg-bg-subtle p-6">
+        <div className="flex items-start justify-between gap-3 mb-3">
+          <h1 className="font-display tracking-wider text-2xl text-accent-spirit">{season.name}</h1>
           <span className="shrink-0 text-xs text-text-muted font-mono">
-            {currentSeason.start_date} → {currentSeason.end_date}
+            {season.start_date} → {season.end_date}
           </span>
         </div>
-        <div className="text-xs text-accent-xp font-display tracking-wider">
-          {remaining} jour{remaining !== 1 ? 's' : ''} restant{remaining !== 1 ? 's' : ''}
+        <div className="flex items-center gap-4 text-xs">
+          <span className="text-accent-xp font-display tracking-wider">
+            {remaining} jour{remaining !== 1 ? 's' : ''} restant{remaining !== 1 ? 's' : ''}
+          </span>
+          <div className="flex items-center gap-2">
+            <div className="w-32 h-1.5 bg-bg-strong rounded-full overflow-hidden">
+              <div className="h-full bg-accent-spirit" style={{ width: `${progress}%` }} />
+            </div>
+            <span className="text-text-muted">
+              {doneCount}/{season.quests.length} quêtes
+            </span>
+          </div>
         </div>
       </div>
 
       {/* Main objective */}
       <div className="rounded-lg border border-bg-strong bg-bg-subtle p-5">
         <h2 className="font-display tracking-widest text-xs text-text-muted uppercase mb-2">
-          Objectif principal
+          🎯 Objectif principal
         </h2>
-        <p className="text-sm leading-relaxed">{currentSeason.main_objective}</p>
+        <p className="text-base leading-relaxed">{season.main_objective}</p>
       </div>
 
-      {/* Season quests */}
-      {currentSeason.quests.length > 0 && (
+      {/* Quests */}
+      {season.quests.length > 0 ? (
         <div>
           <h2 className="font-display tracking-widest text-xs text-text-muted uppercase mb-3">
-            Quêtes de saison
+            📜 Quêtes de saison
           </h2>
           <div className="space-y-2">
-            {currentSeason.quests.map((q) => (
-              <SeasonQuestRow
+            {season.quests.map((q) => (
+              <div
                 key={q.id}
-                quest={q}
-                seasonId={currentSeason.id}
-                onComplete={reloadSeason}
-              />
+                className="flex items-start gap-3 p-3 rounded-lg border border-bg-strong bg-bg-subtle"
+              >
+                <button
+                  onClick={q.done ? undefined : () => completeQuest(q.id)}
+                  disabled={q.done || completingId === q.id}
+                  className="mt-0.5 shrink-0 disabled:cursor-default"
+                >
+                  {completingId === q.id ? (
+                    <Loader2 size={18} className="animate-spin text-accent-xp" />
+                  ) : q.done ? (
+                    <CheckCircle2 size={18} className="text-accent-xp" />
+                  ) : (
+                    <Circle size={18} className="text-text-muted hover:text-accent-spirit" />
+                  )}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <div className={`text-sm font-medium ${q.done ? 'line-through text-text-muted' : ''}`}>
+                    {q.title}
+                  </div>
+                  {q.description && (
+                    <div className="text-xs text-text-muted mt-0.5">{q.description}</div>
+                  )}
+                  <div className="flex items-center gap-3 mt-1.5">
+                    <span className="text-xs text-accent-xp">+{q.xp_reward.toLocaleString()} XP</span>
+                    <StatBadge stat={q.stat_reward} />
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-bg-strong bg-bg-subtle p-5 text-sm text-text-muted">
+          Aucune quête définie pour cette saison.
         </div>
       )}
 
       {/* Rewards */}
-      {currentSeason.rewards && currentSeason.rewards.length > 0 && (
+      {season.rewards && season.rewards.length > 0 && (
         <div>
           <h2 className="font-display tracking-widest text-xs text-text-muted uppercase mb-3">
-            Récompenses
+            🏆 Récompenses
           </h2>
           <div className="space-y-2">
-            {currentSeason.rewards.map((r, i) => (
-              <div key={i} className="p-3 rounded-lg border border-accent-xp/20 bg-accent-xp/5 text-sm">
+            {season.rewards.map((r, i) => (
+              <div
+                key={i}
+                className="p-3 rounded-lg border border-accent-xp/20 bg-accent-xp/5 text-sm"
+              >
                 <div className="font-medium text-accent-xp">{r.title}</div>
                 {r.description && (
                   <div className="text-xs text-text-muted mt-0.5">{r.description}</div>
@@ -167,9 +185,8 @@ function ActiveSeasonView({ season, onEnd }: { season: Season; onEnd: () => void
         </div>
       )}
 
-      {/* End button */}
       <button
-        onClick={handleEnd}
+        onClick={endSeason}
         disabled={ending}
         className="flex items-center gap-2 rounded-lg border border-accent-force/40 bg-accent-force/5 text-accent-force text-sm px-4 py-2 hover:bg-accent-force/10 transition-colors disabled:opacity-50"
       >
@@ -180,40 +197,89 @@ function ActiveSeasonView({ season, onEnd }: { season: Season; onEnd: () => void
   );
 }
 
-interface AiDraft {
+// ────────────────────────────────────────────────────────────────────────────
+// Wizard — manual + AI generate
+// ────────────────────────────────────────────────────────────────────────────
+
+type DraftQuest = {
+  id: string;
+  title: string;
+  description?: string;
+  xp_reward: number;
+  stat_reward?: StatName;
+  done: boolean;
+  condition: { type: string; params?: Record<string, unknown> };
+};
+
+interface Draft {
   name: string;
   main_objective: string;
   start_date: string;
   end_date: string;
-  quests: Season['quests'];
-  rewards?: Season['rewards'];
+  quests: DraftQuest[];
+  rewards?: { title: string; description?: string }[];
+}
+
+function makeEmptyDraft(start: string, end: string): Draft {
+  return {
+    name: `Saison ${start.slice(0, 7)}`,
+    main_objective: '',
+    start_date: start,
+    end_date: end,
+    quests: [],
+    rewards: [],
+  };
+}
+
+function newQuest(): DraftQuest {
+  return {
+    id: crypto.randomUUID(),
+    title: '',
+    description: '',
+    xp_reward: 500,
+    stat_reward: 'discipline',
+    done: false,
+    condition: { type: 'manual' },
+  };
 }
 
 function NewSeasonWizard({ onCreated }: { onCreated: () => void }) {
   const { start, end } = defaultDateRange();
-  const [startDate, setStartDate] = useState(start);
-  const [endDate, setEndDate] = useState(end);
+  const [draft, setDraft] = useState<Draft>(makeEmptyDraft(start, end));
   const [generating, setGenerating] = useState(false);
-  const [draft, setDraft] = useState<AiDraft | null>(null);
   const [creating, setCreating] = useState(false);
 
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      const result = await apiFetch<AiDraft>('/seasons/generate', {
+      const result = await apiFetch<Draft>('/seasons/generate', {
         method: 'POST',
-        body: JSON.stringify({ start_date: startDate, end_date: endDate }),
+        body: JSON.stringify({ start_date: draft.start_date, end_date: draft.end_date }),
       });
-      setDraft(result);
-    } catch {
-      // ignore
+      // ensure each quest has an id (backend may omit)
+      const withIds: DraftQuest[] = (result.quests ?? []).map((q) => ({
+        ...q,
+        id: q.id ?? crypto.randomUUID(),
+        done: q.done ?? false,
+      }));
+      setDraft({ ...result, quests: withIds });
+      toast.success('Draft IA généré, ajuste si besoin.');
+    } catch (e) {
+      reportError('Échec génération IA', e);
     } finally {
       setGenerating(false);
     }
   };
 
   const handleCreate = async () => {
-    if (!draft) return;
+    if (!draft.name.trim()) {
+      toast.error('Donne un nom à la saison');
+      return;
+    }
+    if (!draft.main_objective.trim()) {
+      toast.error('Définis un objectif principal');
+      return;
+    }
     setCreating(true);
     try {
       const input: SeasonInput = {
@@ -221,134 +287,204 @@ function NewSeasonWizard({ onCreated }: { onCreated: () => void }) {
         main_objective: draft.main_objective,
         start_date: draft.start_date,
         end_date: draft.end_date,
-        quests: draft.quests,
+        quests: draft.quests as SeasonInput['quests'],
         rewards: draft.rewards,
       };
       await apiFetch('/seasons', {
         method: 'POST',
         body: JSON.stringify(input),
       });
+      toast.success('Saison démarrée 🚀');
       onCreated();
-    } catch {
-      // ignore
+    } catch (e) {
+      reportError('Échec création saison', e);
     } finally {
       setCreating(false);
     }
   };
 
+  const updateQuest = (i: number, patch: Partial<DraftQuest>) => {
+    const next = [...draft.quests];
+    next[i] = { ...next[i]!, ...patch };
+    setDraft({ ...draft, quests: next });
+  };
+
+  const labelCls = 'text-xs text-text-muted font-display tracking-wider uppercase mb-1 block';
+  const inputCls =
+    'w-full rounded border border-bg-strong bg-bg-subtle text-sm px-3 py-2 focus:outline-none focus:border-accent-spirit';
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display tracking-wider text-xl mb-1">Nouvelle saison</h1>
+        <h1 className="font-display tracking-wider text-2xl mb-1">Nouvelle saison</h1>
         <p className="text-text-muted text-sm">
-          Définis une période de 3 mois avec un objectif principal et des quêtes ambitieuses.
+          Définis une période (typiquement 3 mois) avec un objectif principal et des quêtes
+          ambitieuses. Tu peux remplir à la main ou laisser l&apos;IA proposer un draft.
         </p>
       </div>
 
       {/* Date range */}
-      <div className="flex gap-4 flex-wrap">
-        <div className="flex flex-col gap-1">
-          <label className="text-xs text-text-muted font-display tracking-wider uppercase">
-            Début
-          </label>
+      <div className="grid grid-cols-2 gap-4 max-w-md">
+        <div>
+          <label className={labelCls}>Début</label>
           <input
             type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="rounded border border-bg-strong bg-bg-subtle text-sm px-3 py-2 focus:outline-none focus:border-accent-spirit"
+            value={draft.start_date}
+            onChange={(e) => setDraft({ ...draft, start_date: e.target.value })}
+            className={inputCls}
           />
         </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-xs text-text-muted font-display tracking-wider uppercase">
-            Fin
-          </label>
+        <div>
+          <label className={labelCls}>Fin</label>
           <input
             type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="rounded border border-bg-strong bg-bg-subtle text-sm px-3 py-2 focus:outline-none focus:border-accent-spirit"
+            value={draft.end_date}
+            onChange={(e) => setDraft({ ...draft, end_date: e.target.value })}
+            className={inputCls}
           />
         </div>
       </div>
 
-      {/* Generate button */}
-      <button
-        onClick={handleGenerate}
-        disabled={generating || !startDate || !endDate}
-        className="flex items-center gap-2 rounded-lg bg-accent-spirit/10 border border-accent-spirit/30 text-accent-spirit text-sm px-4 py-2 hover:bg-accent-spirit/20 transition-colors disabled:opacity-50"
-      >
-        {generating ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
-        Générer avec l&apos;IA
-      </button>
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={handleGenerate}
+          disabled={generating}
+          className="flex items-center gap-2 rounded-lg bg-accent-spirit/10 border border-accent-spirit/30 text-accent-spirit text-sm px-4 py-2 hover:bg-accent-spirit/20 transition-colors disabled:opacity-50"
+        >
+          {generating ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
+          Générer avec l&apos;IA
+        </button>
+        <span className="text-xs text-text-muted self-center">
+          — ou remplis manuellement ci-dessous —
+        </span>
+      </div>
 
-      {/* Draft preview / editable */}
-      {draft && (
-        <div className="space-y-4 border border-bg-strong rounded-lg p-5 bg-bg-subtle">
-          <div>
-            <label className="text-xs text-text-muted font-display tracking-wider uppercase mb-1 block">
-              Nom de la saison
-            </label>
-            <input
-              type="text"
-              value={draft.name}
-              onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-              className="w-full rounded border border-bg-strong bg-bg-DEFAULT text-sm px-3 py-2 focus:outline-none focus:border-accent-spirit"
-            />
+      {/* Manual / editable form */}
+      <div className="space-y-4 rounded-lg border border-bg-strong bg-bg-subtle p-5">
+        <div>
+          <label className={labelCls}>Nom de la saison</label>
+          <input
+            type="text"
+            value={draft.name}
+            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+            placeholder="Saison Force 2026 Q2"
+            className={inputCls}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Objectif principal</label>
+          <textarea
+            value={draft.main_objective}
+            onChange={(e) => setDraft({ ...draft, main_objective: e.target.value })}
+            rows={3}
+            placeholder="Ex : Atteindre 100kg au DC, perdre 4kg de gras, finir 90 jours skincare AM/PM."
+            className={`${inputCls} resize-none`}
+          />
+        </div>
+
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs text-text-muted font-display tracking-wider uppercase">
+              Quêtes de saison ({draft.quests.length})
+            </span>
+            <button
+              type="button"
+              onClick={() => setDraft({ ...draft, quests: [...draft.quests, newQuest()] })}
+              className="flex items-center gap-1 text-xs text-accent-spirit hover:opacity-80"
+            >
+              <Plus size={12} />
+              Ajouter
+            </button>
           </div>
-          <div>
-            <label className="text-xs text-text-muted font-display tracking-wider uppercase mb-1 block">
-              Objectif principal
-            </label>
-            <textarea
-              value={draft.main_objective}
-              onChange={(e) => setDraft({ ...draft, main_objective: e.target.value })}
-              rows={3}
-              className="w-full rounded border border-bg-strong bg-bg-DEFAULT text-sm px-3 py-2 focus:outline-none focus:border-accent-spirit resize-none"
-            />
-          </div>
-          <div>
-            <h3 className="text-xs text-text-muted font-display tracking-wider uppercase mb-2">
-              Quêtes de saison
-            </h3>
-            <div className="space-y-2">
-              {draft.quests.map((q, i) => (
-                <div key={q.id} className="flex gap-2 items-start">
+          <div className="space-y-3">
+            {draft.quests.map((q, i) => (
+              <div
+                key={q.id}
+                className="rounded border border-bg-strong bg-bg-DEFAULT p-3 space-y-2"
+              >
+                <div className="flex gap-2">
                   <input
                     type="text"
                     value={q.title}
-                    onChange={(e) => {
-                      const newQuests = [...draft.quests];
-                      newQuests[i] = { ...q, title: e.target.value };
-                      setDraft({ ...draft, quests: newQuests });
-                    }}
-                    className="flex-1 rounded border border-bg-strong bg-bg-DEFAULT text-sm px-3 py-2 focus:outline-none focus:border-accent-spirit"
+                    onChange={(e) => updateQuest(i, { title: e.target.value })}
                     placeholder="Titre de la quête"
+                    className={`flex-1 ${inputCls}`}
                   />
-                  <span className="text-xs text-accent-xp pt-2 shrink-0">
-                    {q.xp_reward.toLocaleString()} XP
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setDraft({ ...draft, quests: draft.quests.filter((_, j) => j !== i) })
+                    }
+                    className="text-text-muted hover:text-accent-force p-2"
+                    title="Supprimer"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
-              ))}
-            </div>
+                <textarea
+                  value={q.description ?? ''}
+                  onChange={(e) => updateQuest(i, { description: e.target.value })}
+                  placeholder="Description (optionnel)"
+                  rows={2}
+                  className={`${inputCls} resize-none text-xs`}
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-text-muted">XP récompense</label>
+                    <input
+                      type="number"
+                      value={q.xp_reward}
+                      onChange={(e) => updateQuest(i, { xp_reward: Number(e.target.value) })}
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-text-muted">Stat boostée</label>
+                    <select
+                      value={q.stat_reward ?? ''}
+                      onChange={(e) =>
+                        updateQuest(i, { stat_reward: (e.target.value || undefined) as StatName | undefined })
+                      }
+                      className={inputCls}
+                    >
+                      <option value="">— aucune —</option>
+                      {STATS.map((s) => (
+                        <option key={s.value} value={s.value}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {draft.quests.length === 0 && (
+              <div className="text-xs text-text-muted py-3">
+                Aucune quête. Génère avec l&apos;IA ou clique sur &quot;Ajouter&quot;.
+              </div>
+            )}
           </div>
-
-          <button
-            onClick={handleCreate}
-            disabled={creating}
-            className="flex items-center gap-2 rounded-lg bg-accent-xp/10 border border-accent-xp/30 text-accent-xp text-sm px-4 py-2 hover:bg-accent-xp/20 transition-colors disabled:opacity-50"
-          >
-            {creating ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-            Démarrer la saison
-          </button>
         </div>
-      )}
+      </div>
+
+      <button
+        onClick={handleCreate}
+        disabled={creating}
+        className="w-full flex items-center justify-center gap-2 rounded-lg bg-accent-xp text-bg-DEFAULT font-bold py-3 text-sm tracking-wider hover:opacity-90 transition-opacity disabled:opacity-50"
+      >
+        {creating ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+        Démarrer la saison
+      </button>
     </div>
   );
 }
 
+// ────────────────────────────────────────────────────────────────────────────
+// Past seasons accordion
+// ────────────────────────────────────────────────────────────────────────────
+
 function PastSeasonCard({ season }: { season: Season }) {
   const [open, setOpen] = useState(false);
-
   return (
     <div className="rounded-lg border border-bg-strong bg-bg-subtle overflow-hidden">
       <button
@@ -361,21 +497,15 @@ function PastSeasonCard({ season }: { season: Season }) {
             {season.start_date} → {season.end_date}
           </span>
         </div>
-        {open ? (
-          <ChevronUp size={16} className="text-text-muted" />
-        ) : (
-          <ChevronDown size={16} className="text-text-muted" />
-        )}
+        {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
       </button>
       {open && (
         <div className="px-4 pb-4 space-y-3 border-t border-bg-strong">
           <p className="text-sm text-text-muted pt-3">{season.main_objective}</p>
           {season.recap_markdown && (
-            <div className="prose prose-sm prose-invert max-w-none">
-              <pre className="text-xs text-text-DEFAULT whitespace-pre-wrap bg-bg-DEFAULT rounded p-3 border border-bg-strong">
-                {season.recap_markdown}
-              </pre>
-            </div>
+            <pre className="text-xs whitespace-pre-wrap bg-bg-DEFAULT rounded p-3 border border-bg-strong">
+              {season.recap_markdown}
+            </pre>
           )}
           {season.quests.length > 0 && (
             <div className="space-y-1">
@@ -397,25 +527,34 @@ function PastSeasonCard({ season }: { season: Season }) {
   );
 }
 
-// ---- Main page ----
+// ────────────────────────────────────────────────────────────────────────────
+// Page
+// ────────────────────────────────────────────────────────────────────────────
 
 export default function SaisonPage() {
   const [loading, setLoading] = useState(true);
-  const [currentSeason, setCurrentSeason] = useState<Season | null | undefined>(undefined);
+  const [currentSeason, setCurrentSeason] = useState<Season | null>(null);
   const [pastSeasons, setPastSeasons] = useState<Season[]>([]);
   const [pastOpen, setPastOpen] = useState(false);
 
   const loadData = async () => {
+    setLoading(true);
     try {
       const [current, all] = await Promise.allSettled([
         apiFetch<Season | null>('/seasons/current'),
-        apiFetch<Season[]>('/seasons'),
+        apiFetch<Season[] | { items: Season[] }>('/seasons'),
       ]);
       if (current.status === 'fulfilled') setCurrentSeason(current.value);
       else setCurrentSeason(null);
       if (all.status === 'fulfilled') {
-        const list = Array.isArray(all.value) ? all.value : [];
+        const list = Array.isArray(all.value)
+          ? all.value
+          : Array.isArray((all.value as { items?: Season[] }).items)
+            ? (all.value as { items: Season[] }).items
+            : [];
         setPastSeasons(list.filter((s) => s.status === 'ended'));
+      } else {
+        setPastSeasons([]);
       }
     } finally {
       setLoading(false);
@@ -425,12 +564,6 @@ export default function SaisonPage() {
   useEffect(() => {
     loadData();
   }, []);
-
-  const reload = () => {
-    setLoading(true);
-    setCurrentSeason(undefined);
-    loadData();
-  };
 
   if (loading) {
     return (
@@ -443,12 +576,11 @@ export default function SaisonPage() {
   return (
     <div className="space-y-10 max-w-3xl">
       {currentSeason ? (
-        <ActiveSeasonView season={currentSeason} onEnd={reload} />
+        <ActiveSeasonView season={currentSeason} onChange={loadData} />
       ) : (
-        <NewSeasonWizard onCreated={reload} />
+        <NewSeasonWizard onCreated={loadData} />
       )}
 
-      {/* Past seasons */}
       {pastSeasons.length > 0 && (
         <div>
           <button

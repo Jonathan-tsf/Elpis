@@ -64,6 +64,14 @@ export function seasonKey(id: string): { pk: string; sk: string } {
   return { pk: USER_PK, sk: `SEASON#${id}` };
 }
 
+export function customHabitKey(id: string): { pk: string; sk: string } {
+  return { pk: USER_PK, sk: `HABIT#${id}` };
+}
+
+export function habitLogKey(habitId: string, date: string): { pk: string; sk: string } {
+  return { pk: USER_PK, sk: `HLOG#${habitId}#${date}` };
+}
+
 export function dateString(date?: Date): string {
   const d = date ?? new Date();
   return d.toISOString().slice(0, 10);

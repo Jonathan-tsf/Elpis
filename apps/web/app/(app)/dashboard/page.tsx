@@ -195,19 +195,41 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* CTA Journal */}
-      <Link
-        href="/journal"
-        className="block rounded-lg border border-bg-strong bg-bg-subtle hover:bg-bg-strong transition-colors p-6 text-center"
-      >
-        <div className="text-2xl mb-2">🎙️</div>
-        <div className="font-display tracking-wider text-accent-spirit text-sm">
-          Journal du soir
-        </div>
-        <div className="text-xs text-text-muted mt-1">
-          Remplis ton journal quotidien
-        </div>
-      </Link>
+      {/* CTAs vers les pages principales */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <Link
+          href="/habitudes"
+          className="block rounded-lg border border-bg-strong bg-bg-subtle hover:bg-bg-strong transition-colors p-5 text-center"
+        >
+          <div className="text-2xl mb-2">⚡</div>
+          <div className="font-display tracking-wider text-accent-spirit text-sm">Habitudes</div>
+          <div className="text-xs text-text-muted mt-1">Journal du jour + enregistrement vocal</div>
+        </Link>
+        <Link
+          href="/sommeil"
+          className="block rounded-lg border border-bg-strong bg-bg-subtle hover:bg-bg-strong transition-colors p-5 text-center"
+        >
+          <div className="text-2xl mb-2">😴</div>
+          <div className="font-display tracking-wider text-accent-spirit text-sm">Sommeil</div>
+          <div className="text-xs text-text-muted mt-1">Durée, qualité, insights</div>
+        </Link>
+        <Link
+          href="/sport"
+          className="block rounded-lg border border-bg-strong bg-bg-subtle hover:bg-bg-strong transition-colors p-5 text-center"
+        >
+          <div className="text-2xl mb-2">💪</div>
+          <div className="font-display tracking-wider text-accent-endurance text-sm">Sport</div>
+          <div className="text-xs text-text-muted mt-1">Séances, perf, programme</div>
+        </Link>
+        <Link
+          href="/skincare"
+          className="block rounded-lg border border-bg-strong bg-bg-subtle hover:bg-bg-strong transition-colors p-5 text-center"
+        >
+          <div className="text-2xl mb-2">✨</div>
+          <div className="font-display tracking-wider text-accent-appearance text-sm">Skincare</div>
+          <div className="text-xs text-text-muted mt-1">Routines AM/PM, produits, photos</div>
+        </Link>
+      </div>
     </div>
   );
 }
