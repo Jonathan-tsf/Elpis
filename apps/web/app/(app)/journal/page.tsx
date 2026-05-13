@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, X, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { apiFetch } from '@/lib/api-client';
 import { todayStr, shiftDate, formatHumanDate } from '@/lib/dates';
 import { showXpToast, type XpDelta } from '@/components/xp-toast';
@@ -423,11 +424,18 @@ function DailyLogForm({
     // Notes
     if (values.notes) body.notes = values.notes;
 
-    const res = await apiFetch<PutLogResponse>(`/daily-log/${today}`, {
-      method: 'PUT',
-      body: JSON.stringify(body),
-    });
-    onSuccess(res);
+    try {
+      const res = await apiFetch<PutLogResponse>(`/daily-log/${today}`, {
+        method: 'PUT',
+        body: JSON.stringify(body),
+      });
+      onSuccess(res);
+      toast.success('Journée enregistrée');
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error('[journal] save failed', e, 'body=', body);
+      toast.error(`Échec de l'enregistrement : ${e instanceof Error ? e.message : String(e)}`);
+    }
   };
 
   return (
